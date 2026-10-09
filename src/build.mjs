@@ -128,7 +128,9 @@ add({ path: "", title: "", desc: SITE.tagline, pageKey: "home", body: (R) => she
   const ids = ph.ids.length ? ph.ids : SETUP_IDS;
   return `<li class="tl-item"><div class="tl-rail">${phaseBadge(ph)}</div><article class="tl-card">
 <header><p class="eyebrow">Phase ${ph.num}${ph.level ? ` · ${ph.level}` : ""}</p><h3><a href="${R}${ph.url}">${esc(ph.name)}</a></h3><p class="tl-tag">${esc(ph.tagline)}</p></header>
-<p>${esc(ph.goal)}</p>
+<p>${md(ph.context[0])}</p>
+<details class="tl-more"><summary>What you'll learn in this phase</summary>
+<ul class="tl-learn">${ph.ids.length ? mods.map((g) => `<li><b>${esc(DOM[g.key].name)}.</b> ${md(ph.modules[g.key])}</li>`).join("") : ph.learn.map((x) => `<li><b>${esc(x.title)}.</b> ${md(x.text)}</li>`).join("")}</ul></details>
 <div class="tl-meta"><span>${icon("flask")}${ph.ids.length ? `${ph.ids.length} labs` : `${SETUP.length} setup steps`}</span><span>${icon("clock")}${ph.ids.length ? `${hrs(ph.ids)} h` : "one evening"}</span>${ph.ids.length ? `<span>${icon("layers")}${mods.length} topics</span>` : ""}</div>
 ${mods.length ? `<div class="dtags">${mods.map((g) => domTag(g.key, R, false)).join("")}</div>` : ""}
 ${prog(ids, ph.ids.length ? "labs" : "steps")}
@@ -170,11 +172,15 @@ PHASES.forEach((ph, pi) => {
   const ids = ph.ids.length ? ph.ids : SETUP_IDS;
   const mods = modules(ph.ids);
   const fullWeeks = PLANS[0].weeks.filter((w) => w.phase === ph).length;
+  for (const g of mods) if (!ph.modules?.[g.key]) throw new Error(`${ph.id}: no module note for ${g.key}`);
+  const secs = [["about", "About this phase"], ["learn", "What you'll learn"], ["outcomes", "By the end you can"], ["flow", "How the phase runs"], ["tips", "Tips"], ["ready", "Ready to move on?"]];
   const body = (R) => {
-    const content = ph.ids.length ? mods.map((g, gi) => `<section class="module">
+    const learn = ph.ids.length ? mods.map((g, gi) => `<section class="module">
 <header class="mod-head"><span class="mod-n">Module ${gi + 1}</span>${domTag(g.key, R, false)}<span class="muted small">${g.ids.length} lab${g.ids.length > 1 ? "s" : ""} · ${hrs(g.ids)} h</span><a class="small mod-primer" href="${R}concepts/${DOM[g.key].slug}/">${icon("bulb")}Read the primer</a></header>
+<p class="mod-note">${md(ph.modules[g.key])}</p>
 <ol class="lrows">${g.ids.map((id) => labRow(R, id)).join("")}</ol></section>`).join("")
-      : `<section class="module"><header class="mod-head"><span class="mod-n">Setup steps</span><span class="muted small">Do them in order. S1–S6 on day 1, the Terraform files (S7–S9) when you first need them.</span></header>
+      : `<div class="learn-grid">${ph.learn.map((x) => `<div class="card"><h3>${esc(x.title)}</h3><p>${md(x.text)}</p></div>`).join("")}</div>
+<section class="module"><header class="mod-head"><span class="mod-n">Setup steps</span><span class="muted small">Do them in order. S1–S6 on day 1, the Terraform files (S7–S9) when you first need them.</span></header>
 <ol class="lrows">${SETUP.map((s) => `<li class="lrow" data-lab="${s.id}"><a href="${R}setup/${s.id.toLowerCase()}/"><span class="tick" aria-hidden="true">${icon("check")}</span><span class="lr-main"><span class="lr-top"><span class="lid">${s.id}</span><b>${esc(s.title)}</b></span><span class="lr-goal">${esc(plainText(md(s.why)).split(". ")[0])}.</span></span></a></li>`).join("")}</ol></section>
 <div class="split2"><a class="card link" href="${R}guide/environments/"><h3>${icon("server")} The six lab environments</h3><p>Laptop, VMs, one spot GPU, a multi-GPU node, two EFA nodes, rented A100/H100. Every lab says which one it needs.</p><span class="more">Compare environments and costs ${icon("arrowR")}</span></a>
 <a class="card link" href="${R}guide/first-10-days/"><h3>${icon("cal")} Your first 10 days</h3><p>A day-by-day plan from an empty laptop to your first DCGM report and nccl-tests run.</p><span class="more">See the first 10 days ${icon("arrowR")}</span></a></div>`;
@@ -191,19 +197,30 @@ ${phaseStrip(R, ph)}
 </div></section>
 <div class="wrap phase-body">
 <div class="phase-main">
-<h2>What you'll be able to do</h2>
-<ul class="ticks">${ph.outcomes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul>
-<h2>${ph.ids.length ? "Modules" : "Steps"}</h2>
-${content}
-<div class="callout ok">${icon("flag")}<div><b>Checkpoint before Phase ${ph.num + 1 <= 4 ? ph.num + 1 : "the interview"}.</b> ${md(ph.milestone)}</div></div>
+<section id="about" class="psec"><h2>${icon("info")}About this phase</h2>
+<div class="prose ph-context">${ph.context.map((x) => `<p>${md(x)}</p>`).join("")}</div></section>
+<section id="learn" class="psec"><h2>${icon("bulb")}What you'll learn${ph.ids.length ? ", module by module" : ""}</h2>
+${ph.ids.length ? `<p class="muted">Each module is one topic. Read what it covers, skim the primer, then do its labs top to bottom.</p>` : ""}
+${learn}</section>
+<section id="outcomes" class="psec"><h2>${icon("target")}By the end you can</h2>
+<ul class="ticks">${ph.outcomes.map((o) => `<li>${esc(o)}</li>`).join("")}</ul></section>
+<section id="flow" class="psec"><h2>${icon("map")}How the phase runs</h2>
+<ol class="flow">${ph.flow.map((f) => `<li><b>${esc(f.stage)}</b><p>${linkIds(f.text, R)}</p></li>`).join("")}</ol></section>
+<section id="tips" class="psec"><h2>${icon("star")}Tips</h2>
+<ul class="tiplist">${ph.tips.map((t) => `<li>${md(t)}</li>`).join("")}</ul></section>
+<section id="ready" class="psec"><h2>${icon("flag")}Ready to move on?</h2>
+<p>Move on to ${nextPh ? `Phase ${nextPh.num}` : "interview practice"} when you can tick all of these:</p>
+<ul class="checklist">${ph.ready.map((r, i) => `<li><label><input type="checkbox" data-verify="${ph.id}:${i}"><span>${md(r)}</span></label></li>`).join("")}</ul>
+<div class="callout ok">${icon("flag")}<div><b>Checkpoint.</b> ${md(ph.milestone)}</div></div></section>
 <nav class="pager" aria-label="Phase navigation">
 ${prevPh ? `<a class="prev" href="${R}${prevPh.url}">${icon("arrowL")}<span><small>Previous phase</small>${prevPh.num} · ${esc(prevPh.name)}</span></a>` : `<a class="prev" href="${R}">${icon("arrowL")}<span><small>Back</small>Roadmap</span></a>`}
 ${nextPh ? `<a class="next" href="${R}${nextPh.url}"><span><small>Next phase</small>${nextPh.num} · ${esc(nextPh.name)}</span>${icon("arrowR")}</a>` : `<a class="next" href="${R}interview/"><span><small>Next</small>Interview bank</span>${icon("arrowR")}</a>`}
 </nav></div>
-<aside class="phase-side">
-<div class="card"><h3>In this phase</h3><ul class="plain small">${ph.ids.length ? `<li>${icon("layers")} ${mods.map((g) => g.key).join(", ")}</li><li>${icon("star")} ${ph.ids.filter((id) => LAB[id].m.core).length} of ${ph.ids.length} labs are on the core path</li><li>${icon("server")} Environments: ${[...new Set(ph.ids.map((id) => LAB[id].env))].join(", ")}</li>` : `<li>${icon("clock")} One evening</li><li>${icon("dollar")} Cost: free, plus a few cents for a test GPU</li>`}</ul></div>
-${ph.ids.length ? `<div class="card"><h3>Read first</h3><ul class="plain small">${mods.map((g) => `<li><a href="${R}concepts/${DOM[g.key].slug}/">${g.key} · ${esc(DOM[g.key].name)}</a></li>`).join("")}</ul></div>` : `<div class="card"><h3>Lab tiers</h3>${OV.notes[1].html}</div>`}
-</aside></div>`);
+<aside class="phase-side"><div class="side-stack">
+<div class="card"><h3>${icon("list")}Before you start</h3><ul class="plain small">${ph.before.map((x) => `<li><span>${md(x)}</span></li>`).join("")}</ul></div>
+<div class="card"><h3>${icon("dollar")}Time and cost</h3><p class="small">${ph.ids.length ? `${hrs(ph.ids)} hours across ${ph.ids.length} labs (${ph.ids.filter((id) => LAB[id].m.core).length} on the core path). ` : "One evening. "}${esc(ph.cost)}</p>${ph.ids.length ? `<p class="small muted">Environments: ${[...new Set(ph.ids.map((id) => LAB[id].env))].map((e) => `<span class="chip">${e}</span>`).join(" ")} · <a href="${R}guide/environments/">what these mean</a></p>` : ""}</div>
+<nav class="card ptoc" aria-label="On this page"><h3>On this page</h3><ol>${secs.map(([id, l]) => `<li><a href="#${id}">${l}</a></li>`).join("")}</ol></nav>
+</div></aside></div>`);
   };
   add({ path: ph.url, title: `Phase ${ph.num}: ${ph.name}`, desc: ph.goal, pageKey: "phase", body });
 });

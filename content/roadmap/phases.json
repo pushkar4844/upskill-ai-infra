@@ -14,7 +14,60 @@
    "A gpu-lab Git repository that will hold every script, result and note"
   ],
   "milestone": "You can create a GPU instance, run nvidia-smi on it and destroy it in under 15 minutes, and `labdown` prints an empty table.",
-  "labs": "setup"
+  "labs": "setup",
+  "context": [
+   "Every later lab assumes three things: a Linux shell on your laptop, a cloud account that cannot surprise you with a bill, and Terraform files that create and destroy each lab environment in minutes. This phase builds all three once, so the rest of the roadmap is about learning, not plumbing.",
+   "You will not touch a GPU problem yet. You install WSL2 and the Kubernetes tool chain, open a separate AWS account with a budget alarm, request GPU quota (it can take a few days, which is why it happens on day 1), and write the Terraform for four environments: two small VMs, one GPU spot instance, a multi-GPU node and two EFA nodes.",
+   "The most important thing you learn here is a habit: every session ends with terraform destroy and a labdown check that prints an empty table. That habit is what keeps the whole roadmap at a few hundred dollars."
+  ],
+  "learn": [
+   {
+    "title": "A Linux workstation on Windows",
+    "text": "WSL2 Ubuntu 24.04 with Docker, kind, kubectl, helm and k9s: the same tools you will use against real clusters."
+   },
+   {
+    "title": "Cloud guard-rails",
+    "text": "A separate lab account, MFA, a budget alarm, a region choice and GPU quota requests for both On-Demand and Spot (they are different quotas)."
+   },
+   {
+    "title": "Infrastructure as code for labs",
+    "text": "Terraform templates for VMs, a GPU spot instance and two EFA nodes in a cluster placement group, reached through SSM instead of open SSH ports."
+   },
+   {
+    "title": "Cost discipline",
+    "text": "Spot first, destroy every night, check for leftovers. Plus free and cheap alternatives for GPU time."
+   }
+  ],
+  "flow": [
+   {
+    "stage": "Evening 1",
+    "text": "S1–S6: WSL2, base tools, Docker and Kubernetes CLIs, the AWS sandbox, quota requests and your gpu-lab repository."
+   },
+   {
+    "stage": "When needed",
+    "text": "S7–S9: the Terraform files. Write S7 and S8 now; S9 (EFA nodes) only when you reach labs E2 and F2."
+   },
+   {
+    "stage": "Every session",
+    "text": "S10: teardown and the labdown check. S11 lists free and alternative GPU options."
+   }
+  ],
+  "before": [
+   "A Windows laptop with 16 GB RAM (8 GB works, slowly) and admin rights",
+   "A credit card for a new AWS account",
+   "No GPU or prior GPU knowledge needed"
+  ],
+  "cost": "Free, plus a few cents for a first test GPU instance.",
+  "tips": [
+   "Request GPU quota first thing: approval can take 1–3 days.",
+   "Never put access keys in the repo. Use aws configure sso or a profile, and keep .tfstate out of git.",
+   "Tag every resource with project=gpu-lab so labdown can find leftovers."
+  ],
+  "ready": [
+   "terraform apply, nvidia-smi on the instance, terraform destroy works in under 15 minutes",
+   "labdown prints an empty table",
+   "Your gpu-lab repo has a README and a notes/ folder"
+  ]
  },
  {
   "id": "phase-1",
@@ -32,7 +85,57 @@
    "Do the memory, KV-cache and FLOPs maths customers ask about"
   ],
   "milestone": "Five artifacts in your repo: triage.sh, xidwatch.py with tests, a DCGM report, an nccl-tests plot and a working GPU pod on Kubernetes.",
-  "labs": "Beginner"
+  "labs": "Beginner",
+  "context": [
+   "Phase 1 gives you a first, hands-on pass through every layer of a GPU system, from the Linux node up to Kubernetes. Each lab is the simplest useful version of one skill the job needs. The goal is breadth: after ten labs, no topic in an interview will be completely new to you.",
+   "Most labs run on your laptop or on one spot GPU for an hour or two. Where real hardware is expensive, you practise on a faithful stand-in first: Soft-RoCE instead of an InfiniBand fabric, a Redfish mockup instead of a real BMC, Slurm in Docker with fake GPUs instead of a cluster.",
+   "Every lab leaves a small artifact in your repository: a triage script, an XID decoder with tests, a DCGM report, an nccl-tests plot, a working GPU pod. Those artifacts become your study notes and, later, your proof."
+  ],
+  "modules": {
+   "A": "The first-minute commands for a slow node and the USE method (utilization, saturation, errors) behind them. You create each bottleneck yourself so you recognise it.",
+   "B": "How the NVIDIA driver reports GPU faults (XID codes), which ones mean reset, reboot or replace, and how DCGM diagnostic levels 1–3 prove a GPU is healthy.",
+   "K": "The arithmetic customers ask about: memory per parameter, KV-cache size, training FLOPs and GPU-hours. No model training, just numbers you can defend.",
+   "C": "What sits inside a multi-GPU server: CPU sockets, NUMA nodes, PCIe switches, NICs and NVLink, and how to read nvidia-smi topo -m.",
+   "D": "Redfish, the REST API every modern server BMC exposes: power, sensors, event logs and firmware, practised on a mockup server.",
+   "E": "What RDMA is (queue pairs, memory registration, verbs) and how to test it, using Soft-RoCE between two VMs.",
+   "F": "What NCCL does, how to run nccl-tests and why busbw (not algbw) is the number to compare with link bandwidth.",
+   "G": "Daily Slurm: partitions, sbatch/srun/squeue/sacct, and how GPUs are declared as GRES so jobs get only the GPUs they asked for.",
+   "H": "What NVIDIA's GPU Operator installs on a Kubernetes node, in what order, and how to check each piece when a GPU pod won't start."
+  },
+  "flow": [
+   {
+    "stage": "Week 1",
+    "text": "Laptop labs: node triage (A1), the XID decoder (B1) and the cluster arithmetic (K1). No cloud spend."
+   },
+   {
+    "stage": "Week 2",
+    "text": "First GPU sessions: draw a real node's topology (C1), run DCGM diagnostics (B2). Redfish on a mockup (D1) in between."
+   },
+   {
+    "stage": "Week 3",
+    "text": "Moving data: RDMA on Soft-RoCE (E1) and nccl-tests on a 4-GPU node (F1)."
+   },
+   {
+    "stage": "Week 3–4",
+    "text": "Schedulers: Slurm in Docker (G1) and the GPU Operator on one node (H1). Then the checkpoint."
+   }
+  ],
+  "before": [
+   "Phase 0 done: Terraform for V, G1 and G4 works and you can tear it down",
+   "Basic Linux, Docker and kubectl. New to Kubernetes? Do a short intro course first"
+  ],
+  "cost": "About $10–15 in total. Five labs are free; GPU labs need 1–2 hours of spot time each.",
+  "tips": [
+   "Read the topic primer before each module's first lab; it takes five minutes.",
+   "Group the GPU labs (C1, B2, F1, H1) so one instance serves two labs in an evening.",
+   "Write the interview answer in your own words in notes/<lab>.md before opening the model answer."
+  ],
+  "ready": [
+   "You can explain what each first-minute command rules out",
+   "You know which XIDs mean reset, reboot or RMA",
+   "You can draw a GPU node and explain busbw from memory",
+   "Your repo has the five artifacts listed in the checkpoint"
+  ]
  },
  {
   "id": "phase-2",
@@ -52,7 +155,61 @@
    "Build a DCGM to Prometheus to Grafana pipeline with alerts"
   ],
   "milestone": "An EFA scaling table, a burn-in report with a pass rule, a Slurm config with health checks and a Grafana dashboard with alert rules, all committed.",
-  "labs": "Intermediate"
+  "labs": "Intermediate",
+  "context": [
+   "Phase 2 is the longest and most important phase. Phase 1 showed you each layer once; now you go deep on each one and start working across nodes, which is where real clusters fail. You reproduce real failure modes on purpose and measure their effect with numbers.",
+   "Expect to break things: throttle a GPU, pin a process to the wrong CPU socket, run NCCL with and without EFA, hang an all-reduce, make one node a straggler. Each time you learn the symptom, the tool that shows it and the fix, which is exactly what a field engineer does during cluster bring-up.",
+   "This phase also widens your view from one node to the platform: drivers and containers, BMC firmware, bare-metal provisioning, three clouds' cluster designs, GPU sharing and gang scheduling on Kubernetes, metrics and alerting, and enough of the training and serving workloads to talk to the people who run them."
+  ],
+  "modules": {
+   "A": "Linux depth around the GPU: flame graphs for a starved GPU, how a GPU really reaches a container (hook, device nodes, cgroups, CDI), and how to upgrade drivers safely across a fleet.",
+   "B": "Burn-in: hours of load while logging clocks, temperature and power, spotting throttling through clock-event reasons, and how open-source fault remediation (NVSentinel) is designed.",
+   "C": "Measuring topology: the NUMA mis-pinning penalty in numbers, and a PCIe checker for link width/speed, AER errors, ACS and IOMMU settings.",
+   "D": "A BMC from the inside: boot real OpenBMC firmware in QEMU and talk to it with both Redfish and IPMI.",
+   "E": "Real fabrics: bring up AWS EFA and prove NCCL uses it, InfiniBand diagnostic tools and counters, and the GPUDirect RDMA data path.",
+   "F": "Multi-node NCCL: how all-reduce scales from 1 to 2 nodes with and without the fabric, and how to diagnose a hang and a straggler.",
+   "G": "Slurm for real: GPU nodes with containers (Pyxis/Enroot) and Node Health Check, the same cluster on three clouds, and PXE-booting bare servers into nodes.",
+   "H": "Kubernetes GPU platform features: time-slicing, MPS and MIG; RDMA for pods with the Network Operator; gang scheduling and quota with Kueue on fake nodes; and Dynamic Resource Allocation.",
+   "I": "What each cloud actually gives you per GPU instance: NICs, fabric, placement and limits.",
+   "J": "The standard GPU metrics pipeline: dcgm-exporter → Prometheus → Grafana, with alert rules that matter.",
+   "K": "The workloads: parallelism and MFU on a real training run, checkpoint interval maths, and LLM serving metrics (TTFT, inter-token latency, throughput) with vLLM."
+  },
+  "flow": [
+   {
+    "stage": "Node depth",
+    "text": "Linux, containers and drivers (A2–A4), burn-in and remediation (B3–B4), NUMA and PCIe (C2–C3), OpenBMC (D2). Mostly one spot GPU."
+   },
+   {
+    "stage": "Across nodes",
+    "text": "EFA, InfiniBand and GPUDirect (E2, E3, E5), scaling and failures (F2, F3). Book the two-node EFA sessions together."
+   },
+   {
+    "stage": "Clusters",
+    "text": "Slurm with real GPUs, three clouds, PXE provisioning (G2, G3, G5)."
+   },
+   {
+    "stage": "Platform",
+    "text": "Kubernetes GPU features (H2–H5), cloud instance decoding (I1), metrics and alerts (J1), workload literacy (K2–K4). Then the checkpoint."
+   }
+  ],
+  "before": [
+   "Phase 1 checkpoint passed",
+   "Terraform for G2N (S9) ready before E2",
+   "Comfortable reading Python and Bash scripts"
+  ],
+  "cost": "Roughly $100–200. Most is the two-node EFA sessions (E2, F2, G3) and rented hardware for MIG and GPUDirect; group them.",
+  "tips": [
+   "Run E2 and F2 in the same EFA session, and keep the session to 2–3 hours.",
+   "Keep a failure log: symptom, cause, fix. It becomes your interview stories.",
+   "Labs H3–H5 are free on your laptop; do them while waiting for GPU quota or between paid sessions.",
+   "Book an NCP-AII exam date about halfway through this phase as a deadline."
+  ],
+  "ready": [
+   "You have an EFA scaling table and can explain why the second node costs bandwidth",
+   "You can reproduce and diagnose an NCCL hang and a straggler",
+   "Your Grafana dashboard has alert rules for XID, ECC, throttling and missing GPUs",
+   "You can compare time-slicing, MPS and MIG and say when to use each"
+  ]
  },
  {
   "id": "phase-3",
@@ -70,7 +227,57 @@
    "A 1,024-GPU rollout plan, a storage tiering recommendation and an executive status template"
   ],
   "milestone": "Your acceptance runbook and 512-GPU fabric design are reviewed by someone else and stand up to their questions.",
-  "labs": "Senior-core"
+  "labs": "Senior-core",
+  "context": [
+   "Phase 3 changes the kind of work. Instead of running tools, you produce what a solutions architect owns: designs, runbooks, automation and decisions that other people will rely on. Most labs here are free because the output is a document or code, not a measurement.",
+   "You write the acceptance runbook a customer signs before taking a cluster, design a 512-GPU network on paper, build automation that cordons and repairs bad nodes without draining the whole cluster, write a Kubernetes operator, and plan a 1,024-GPU rollout. Each lab draws on numbers and skills from Phases 1 and 2.",
+   "This is also where you practise communication: decision memos, executive status updates and reliability reports. Senior interviews test judgement and clarity as much as technical depth, and these labs give you written examples to talk through."
+  ],
+  "modules": {
+   "B": "Cluster acceptance: stages, thresholds, evidence and a go/no-go report, the document that ends a bring-up.",
+   "C": "A golden BIOS and firmware baseline, and drift detection across a fleet over Redfish.",
+   "D": "Fleet out-of-band monitoring: BMC health across many servers, and telling cooling problems from workload problems.",
+   "E": "Fabric design: a rail-optimised leaf-spine network for 64 nodes × 8 GPUs, cable counts, oversubscription and congestion settings.",
+   "F": "Finding one bad node among hundreds by bisection instead of testing every pair.",
+   "G": "Slurm or Kubernetes: Slinky, Soperator and Kueue compared, written up as a decision memo.",
+   "H": "Running GPUs on Kubernetes safely: automated cordon/drain/reset with a circuit breaker, a Kubebuilder operator, and a security policy pack.",
+   "I": "The architect's core document: capacity, placement and wave rollout for 1,024 GPUs, plus a storage design for model loading and checkpoints.",
+   "J": "Reliability analytics (bad batch, bad rack, bad driver) and executive communication drills."
+  },
+  "flow": [
+   {
+    "stage": "Prove a cluster",
+    "text": "Acceptance runbook (B5), firmware baseline (C4), fleet BMC monitoring (D3)."
+   },
+   {
+    "stage": "Design",
+    "text": "512-GPU fabric (E4), bad-node bisection (F4), Slurm vs Kubernetes memo (G4)."
+   },
+   {
+    "stage": "Automate",
+    "text": "Node remediation (H6), an operator (H7), a security policy pack (H8)."
+   },
+   {
+    "stage": "Plan and communicate",
+    "text": "1,024-GPU rollout (I2), storage tiers (I3), reliability analytics (J2), executive updates (J3)."
+   }
+  ],
+  "before": [
+   "Phase 2 checkpoint passed, especially the EFA, NCCL and burn-in numbers",
+   "Enough Go to follow the Kubebuilder tutorial (H7)"
+  ],
+  "cost": "About $20–40. Most labs are free; B5 reuses an EFA session, H6 and I3 need a GPU for a few hours.",
+  "tips": [
+   "Ask someone to review your runbook and fabric design, then answer their questions in writing.",
+   "Use real numbers from your own Phase 2 results wherever a design needs a threshold.",
+   "Keep each document to what a busy reader needs: decision, numbers, risks, next step."
+  ],
+  "ready": [
+   "Your acceptance runbook has thresholds you can justify from your own measurements",
+   "Your fabric design survives a reviewer's questions",
+   "Your remediation automation cannot drain more than a set number of nodes",
+   "You can present a rollout plan in five minutes"
+  ]
  },
  {
   "id": "phase-4",
@@ -87,6 +294,43 @@
    "Interview bank answered out loud; NCP-AII booked if you want the certificate"
   ],
   "milestone": "A public capstone repository you can walk through in an interview: what it checks, what it caught and what a run costs.",
-  "labs": "Capstone"
+  "labs": "Capstone",
+  "context": [
+   "Phase 4 turns 48 labs into one repository and one story. The capstone is a validation kit: one command builds a two-node GPU cluster with Terraform, configures it with Ansible, runs your acceptance stages and writes a dated go/no-go report, then tears everything down.",
+   "To show the kit works, you inject failures and prove each one is caught: a simulated XID line, EFA disabled, a NUMA mis-binding, a slow node. A README with the architecture, the results and the cost per run makes the repository readable in five minutes.",
+   "The second lab makes the work visible: posts about what you learned, two pull requests to open-source projects you used, and a 10-minute talk built on the capstone. You finish by answering the interview bank out loud."
+  ],
+  "modules": {
+   "L": "Packaging, automation and storytelling: one-command validation with injected failures, and public proof through posts, pull requests and a talk."
+  },
+  "flow": [
+   {
+    "stage": "Build",
+    "text": "Assemble scripts from earlier labs into make up / configure / validate / down, driven by a criteria file."
+   },
+   {
+    "stage": "Break",
+    "text": "Inject each failure and make sure the report marks it as a no-go with the right evidence."
+   },
+   {
+    "stage": "Show",
+    "text": "README, diagram, results and cost; posts, pull requests and a 10-minute talk (L2)."
+   }
+  ],
+  "before": [
+   "Phases 1–3 done, or at least the core-path labs",
+   "Working scripts from B2, B3, B5, C2, E2, F1–F3 and J1"
+  ],
+  "cost": "About $20–40 across a few two-node runs. Destroy after every run.",
+  "tips": [
+   "Make the kit fail loudly and clearly; a clear no-go report is more impressive than a green one.",
+   "Record a short demo video in case a live demo isn't possible.",
+   "Practise the walkthrough: what it checks, what it caught, what a run costs, what changes at 2,000 GPUs."
+  ],
+  "ready": [
+   "A stranger can run your kit from the README",
+   "Every injected failure is caught with evidence",
+   "You can give the 10-minute talk without notes"
+  ]
  }
 ]
