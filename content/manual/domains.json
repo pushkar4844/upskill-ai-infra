@@ -1,0 +1,50 @@
+[
+ {
+  "key": "A",
+  "name": "Linux and containers"
+ },
+ {
+  "key": "B",
+  "name": "GPU health and diagnostics"
+ },
+ {
+  "key": "C",
+  "name": "Server hardware and topology"
+ },
+ {
+  "key": "D",
+  "name": "BMC and out-of-band"
+ },
+ {
+  "key": "E",
+  "name": "RDMA and interconnect"
+ },
+ {
+  "key": "F",
+  "name": "NCCL and collectives"
+ },
+ {
+  "key": "G",
+  "name": "Slurm and provisioning"
+ },
+ {
+  "key": "H",
+  "name": "Kubernetes for GPUs"
+ },
+ {
+  "key": "I",
+  "name": "Cloud, capacity and storage"
+ },
+ {
+  "key": "J",
+  "name": "Observability and reporting"
+ },
+ {
+  "key": "K",
+  "name": "LLM and training literacy"
+ },
+ {
+  "key": "L",
+  "name": "Capstone and proof"
+ }
+]

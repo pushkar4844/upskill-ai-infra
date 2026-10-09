@@ -1,0 +1,26 @@
+{
+ "title": "GPU Bring-Up Field Manual",
+ "role": "NVIDIA Solutions Architect, Infrastructure (JR2012776)",
+ "intro_html": "50 hands-on tasks from a first triage script to a full cluster validation kit. Every task has steps, a deliverable, verified GitHub repos, docs and an interview question. It is built around the actual posting: bring-up and validation, RDMA, NCCL, PCIe and NUMA, BMC and Redfish, Linux depth, hyperscaler knowledge.",
+ "lead_html": "The posting asks for people who have brought up large GPU platforms and can explain what is wrong when a cluster underperforms. A cloud architect with Terraform, Kubernetes and multi-team delivery experience already has part of that. The gaps are the hardware and fabric layers, and those are what most of this manual trains.",
+ "time_html": "<b>Time.</b> The full path is 471 hours, about 21 hours a week for 22 weeks. The <span class=\"pill core\">Core path</span> subset (26 tasks, 233 hours, about 11 hours a week) keeps every area of the posting. Pick it if you are working full time.",
+ "notes": [
+  {
+   "title": "Where you stand, from what you told me",
+   "html": "<p><b>Strong:</b> Linux and containers, Kubernetes (CKAD), IaC, hyperscaler compute and networking, customer delivery across teams.</p> <p><b>Gaps to close:</b> hands-on GPU diagnostics, RDMA and NCCL, PCIe/NUMA/BIOS, BMC and Redfish, bare-metal provisioning.</p> <p class=\"muted\">LinkedIn blocked my access, so this is not a profile review. Paste your profile text for a line-by-line one.</p>"
+  },
+  {
+   "title": "Lab tiers, so cost stays low",
+   "html": "<ul><li><b>Tier 0:</b> laptop or one VM. Soft-RoCE, Redfish mockups, OpenBMC in QEMU, Slurm in Docker, KWOK fake GPU nodes.</li> <li><b>Tier 1:</b> one GPU instance on spot.</li><li><b>Tier 2:</b> one multi-GPU node.</li> <li><b>Tier 3:</b> two or more EFA or InfiniBand nodes for a few hours. Tear down every night.</li></ul>"
+  },
+  {
+   "title": "What the call changed",
+   "html": "<p>From a mentoring conversation with an NVIDIA Sr. Solutions Architect (AI Inference): learn LLM basics at a light level, go deep on how workloads are deployed on Kubernetes, think about storage close to compute, topology-aware GPU placement, Kubernetes security (admission policy), CRDs and operators, NVIDIA's free courses.</p> <p>Her role is inference-focused. The Infrastructure posting is closer to hardware bring-up, so those items became H4, H5, H7, H8, I3 and K1 to K4, and the hardware tasks (C, D, E) were added on top.</p>"
+  },
+  {
+   "title": "How I checked this",
+   "html": "<p>Every GitHub repo linked here was confirmed to exist with a readable README on Oct 8, 2026. Star counts are omitted because I could not verify them live. Doc figures (DCGM durations, XID meanings, NCP-AII weights, the 92% all-reduce bar) were read from the cited pages. Where a command or flag varies by version, the task says to check the README.</p>"
+  }
+ ],
+ "footer": "Built Oct 8, 2026. Re-check hardware-specific commands against your driver, CUDA and NCCL versions before relying on a number."
+}

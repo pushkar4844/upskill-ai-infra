@@ -1,0 +1,26 @@
+[
+ {
+  "step": "1. Read the error, all of it",
+  "text": "Copy the exact message into notes/<lab>.md before changing anything."
+ },
+ {
+  "step": "2. Check versions",
+  "text": "nvidia-smi, nvcc --version, cat /proc/driver/nvidia/version, kubectl version, helm list -A. Half of GPU problems are version mismatches."
+ },
+ {
+  "step": "3. Check the logs at the right layer",
+  "text": "Kernel: sudo dmesg -T | tail -50, journalctl -k. Service: journalctl -u <svc> -n 100. K8s: kubectl describe pod, kubectl logs -n <ns> <pod> --all-containers. NCCL: NCCL_DEBUG=INFO."
+ },
+ {
+  "step": "4. Reduce the problem",
+  "text": "Same command on 1 GPU / 1 node / smaller message / no container. Change one thing at a time."
+ },
+ {
+  "step": "5. Search the repo issues",
+  "text": "GitHub > repo > Issues > search the error text. Most lab errors already have an answer there."
+ },
+ {
+  "step": "6. Write it down",
+  "text": "Symptom, cause, fix in notes/. These become your interview stories ('a time I debugged...')."
+ }
+]

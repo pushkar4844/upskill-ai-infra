@@ -1,0 +1,117 @@
+{
+ "lead": "Each line of the posting and the tasks that produce evidence for it.",
+ "rows": [
+  {
+   "requirement": "Bring-up and validation of multi-GPU and multi-node NVIDIA platforms",
+   "tasks": [
+    "B2",
+    "B3",
+    "B5",
+    "F2",
+    "F4"
+   ]
+  },
+  {
+   "requirement": "RDMA, congestion control, high-bandwidth interconnects",
+   "tasks": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "H3"
+   ]
+  },
+  {
+   "requirement": "CUDA, NCCL, NVSwitch/NVLink, drivers, performance tuning",
+   "tasks": [
+    "A4",
+    "F1",
+    "F2",
+    "F3",
+    "B3"
+   ]
+  },
+  {
+   "requirement": "Linux tools: dmesg, journalctl, lspci, numactl, ethtool, iostat, perf, nvidia-smi, ipmitool",
+   "tasks": [
+    "A1",
+    "A2",
+    "C1",
+    "D2"
+   ]
+  },
+  {
+   "requirement": "Server hardware: PCIe, firmware, NUMA, BIOS/UEFI, power and thermal",
+   "tasks": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "B3"
+   ]
+  },
+  {
+   "requirement": "BMC, IPMI, Redfish, out-of-band debugging",
+   "tasks": [
+    "D1",
+    "D2",
+    "D3",
+    "G5"
+   ]
+  },
+  {
+   "requirement": "Linux fundamentals: drivers, kernel subsystems, cgroups, containers",
+   "tasks": [
+    "A3",
+    "A4",
+    "H1"
+   ]
+  },
+  {
+   "requirement": "Find bottlenecks at cluster, node, accelerator, network, application layers",
+   "tasks": [
+    "A2",
+    "F3",
+    "J1",
+    "J2",
+    "I3"
+   ]
+  },
+  {
+   "requirement": "Stand-out: hyperscaler compute and networking knowledge",
+   "tasks": [
+    "E2",
+    "G3",
+    "I1",
+    "I2"
+   ]
+  },
+  {
+   "requirement": "Stand-out: multi-team leadership, executive communication",
+   "tasks": [
+    "J3",
+    "I2",
+    "L2"
+   ]
+  },
+  {
+   "requirement": "Stand-out: pilot to high-volume deployment record",
+   "tasks": [
+    "B5",
+    "H6",
+    "I2",
+    "L1"
+   ]
+  },
+  {
+   "requirement": "Stand-out: LLM and distributed training literacy",
+   "tasks": [
+    "K1",
+    "K2",
+    "K3",
+    "K4"
+   ]
+  }
+ ]
+}

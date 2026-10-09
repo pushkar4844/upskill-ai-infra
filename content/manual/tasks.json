@@ -1,0 +1,2705 @@
+[
+ {
+  "id": "A1",
+  "domain": "A",
+  "level": "Foundation",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 5,
+  "title": "The 60-second node triage drill",
+  "jd": "JD: proficiency with dmesg, journalctl, lspci, numactl, ethtool, iostat, perf, nvidia-smi, top/htop, ipmitool.",
+  "steps": [
+   "For each resource (CPU, memory, disk, network, GPU) write the three USE questions: utilization, saturation, errors.",
+   "Run the first-minute set on any Linux VM: <code>uptime</code>, <code>dmesg -T | tail</code>, <code>vmstat 1</code>, <code>mpstat -P ALL 1</code>, <code>pidstat 1</code>, <code>iostat -xz 1</code>, <code>free -m</code>, <code>sar -n DEV 1</code>, <code>ethtool -S &lt;nic&gt;</code>. On a GPU box add <code>nvidia-smi dmon</code>.",
+   "Create one bottleneck at a time with <code>stress-ng</code> (CPU, memory), <code>fio</code> (disk) and <code>iperf3</code> (network). Write down which tool exposes each one first.",
+   "Wrap the set into <code>triage.sh</code> that prints a one-page report with a verdict line per resource."
+  ],
+  "deliverable_html": "triage.sh plus a table: symptom, command, how to read the output.",
+  "gem_html": "Gregg's Linux Performance hub is the closest thing to an exam syllabus for the Linux-tools line in the JD.",
+  "repos": [
+   {
+    "url": "https://github.com/brendangregg/perf-tools",
+    "name": "brendangregg/perf-tools",
+    "note": "ftrace and perf based one-liners"
+   },
+   {
+    "url": "https://github.com/sysstat/sysstat",
+    "name": "sysstat/sysstat",
+    "note": "iostat, mpstat, pidstat, sar"
+   },
+   {
+    "url": "https://github.com/ColinIanKing/stress-ng",
+    "name": "ColinIanKing/stress-ng",
+    "note": "synthetic load for CPU, memory, I/O"
+   },
+   {
+    "url": "https://github.com/axboe/fio",
+    "name": "axboe/fio",
+    "note": "disk benchmarking"
+   },
+   {
+    "url": "https://github.com/esnet/iperf",
+    "name": "esnet/iperf",
+    "note": "network throughput"
+   },
+   {
+    "url": "https://github.com/brendangregg/bpf-perf-tools-book",
+    "name": "brendangregg/bpf-perf-tools-book",
+    "note": "scripts from the BPF Performance Tools book"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.brendangregg.com/usemethod.html",
+    "name": "USE Method (Brendan Gregg)"
+   },
+   {
+    "url": "https://www.brendangregg.com/linuxperf.html",
+    "name": "Linux Performance hub (Gregg)"
+   },
+   {
+    "url": "https://brendangregg.com/Slides/Percona2016_LinuxSystemsPerf.pdf",
+    "name": "Linux Systems Performance slides (PDF)"
+   }
+  ],
+  "question": "A node is slow. What do you run first, second and third, and what does each rule out?"
+ },
+ {
+  "id": "A2",
+  "domain": "A",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 6,
+  "title": "Flame-graph a stalled GPU job",
+  "jd": "JD: identify performance bottlenecks at node, accelerator and application layers.",
+  "steps": [
+   "Run a small PyTorch training loop with a deliberately slow dataloader (<code>num_workers=0</code>). Watch SM utilization dip in <code>nvidia-smi dmon</code>.",
+   "Capture CPU stacks: <code>perf record -F 99 -a -g -- sleep 30</code>, then <code>perf script | stackcollapse-perf.pl | flamegraph.pl &gt; cpu.svg</code>.",
+   "Load the same capture into FlameScope to see sub-second stalls that a flame graph averages away.",
+   "Fix the dataloader (workers, <code>pin_memory</code>, prefetch) and capture again. Show before and after side by side with GPU utilization."
+  ],
+  "deliverable_html": "Before/after flame graphs with the GPU utilization chart and a three-line root cause.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/brendangregg/FlameGraph",
+    "name": "brendangregg/FlameGraph",
+    "note": "stackcollapse and flamegraph scripts"
+   },
+   {
+    "url": "https://github.com/Netflix/flamescope",
+    "name": "Netflix/flamescope",
+    "note": "subsecond offset heat maps"
+   },
+   {
+    "url": "https://github.com/grafana/pyroscope",
+    "name": "grafana/pyroscope",
+    "note": "continuous profiling"
+   },
+   {
+    "url": "https://github.com/parca-dev/parca",
+    "name": "parca-dev/parca",
+    "note": "continuous profiling with eBPF"
+   },
+   {
+    "url": "https://github.com/pytorch/kineto",
+    "name": "pytorch/kineto",
+    "note": "GPU timeline traces"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.brendangregg.com/linuxperf.html",
+    "name": "Linux Performance hub (Gregg)"
+   }
+  ],
+  "question": "GPU utilization is 40%. How do you decide whether the problem is CPU-side or GPU-side?"
+ },
+ {
+  "id": "A3",
+  "domain": "A",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 6,
+  "title": "Trace a GPU container end to end",
+  "jd": "JD: strong Linux fundamentals across drivers, kernel subsystems, cgroups and containers.",
+  "steps": [
+   "Run a CUDA container with the NVIDIA runtime. Find the OCI spec the runtime received and list the <code>/dev/nvidia*</code> nodes inside the container.",
+   "Inspect the cgroup v2 device allow-list for that container and see which device majors are permitted.",
+   "Generate a CDI spec with <code>nvidia-ctk cdi generate</code> and run the same container through CDI. Compare the two paths.",
+   "Break it on purpose: remove one device from the allow-list, then mount mismatched driver libraries. Capture each error and the fix."
+  ],
+  "deliverable_html": "A one-page sequence diagram: container start to GPU visible, with the two failure modes you reproduced.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/nvidia-container-toolkit",
+    "name": "NVIDIA/nvidia-container-toolkit",
+    "note": "runtime hook and CDI generation"
+   },
+   {
+    "url": "https://github.com/NVIDIA/libnvidia-container",
+    "name": "NVIDIA/libnvidia-container",
+    "note": "library that injects driver files"
+   },
+   {
+    "url": "https://github.com/containerd/containerd",
+    "name": "containerd/containerd",
+    "note": "CRI runtime"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/cri-tools",
+    "name": "kubernetes-sigs/cri-tools",
+    "note": "crictl for debugging"
+   },
+   {
+    "url": "https://github.com/NVIDIA/cloud-native-docs",
+    "name": "NVIDIA/cloud-native-docs",
+    "note": "source of the NVIDIA container and operator docs"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/deploy/gpu-debug-guidelines/pdf/GPU_Debug_Guidelines.pdf",
+    "name": "NVIDIA GPU Debug Guidelines (PDF)"
+   }
+  ],
+  "question": "Walk me through what happens between kubectl apply and a GPU appearing inside the pod."
+ },
+ {
+  "id": "A4",
+  "domain": "A",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 8,
+  "title": "Driver lifecycle and version matrix",
+  "jd": "JD: familiarity with CUDA, NCCL, NVSwitch/NVLink, driver behavior and performance tuning.",
+  "steps": [
+   "Record the stack on one node: <code>nvidia-smi</code>, <code>/proc/driver/nvidia/version</code>, <code>modinfo nvidia</code>, CUDA toolkit version, container toolkit version.",
+   "Install the driver two ways (distro package and runfile). Switch between proprietary and open kernel modules and note what changes.",
+   "Enable persistence with <code>nvidia-persistenced</code> and measure first-call CUDA init latency with and without it.",
+   "Reproduce 'Failed to initialize NVML: Driver/library version mismatch' by upgrading the library without reloading modules. Fix it by unloading the dependent modules in order and reloading.",
+   "Write the upgrade runbook for a fleet: drain, upgrade, validate with DCGM r1, rollback criteria. On NVSwitch systems add the Fabric Manager version match."
+  ],
+  "deliverable_html": "Upgrade and rollback runbook plus a version-compatibility table for your lab node.",
+  "gem_html": "<code>gpu-admin-tools</code> is rarely mentioned in tutorials but shows up when platforms need low-level GPU mode changes.",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/open-gpu-kernel-modules",
+    "name": "NVIDIA/open-gpu-kernel-modules",
+    "note": "open kernel modules source"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvidia-persistenced",
+    "name": "NVIDIA/nvidia-persistenced",
+    "note": "persistence daemon"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvidia-installer",
+    "name": "NVIDIA/nvidia-installer",
+    "note": "installer source"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gpu-admin-tools",
+    "name": "NVIDIA/gpu-admin-tools",
+    "note": "low-level GPU admin scripts; read the README for supported operations"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/deploy/gpu-debug-guidelines/pdf/GPU_Debug_Guidelines.pdf",
+    "name": "NVIDIA GPU Debug Guidelines (PDF)"
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/deployment-guide-dgx-superpod/latest/",
+    "name": "DGX SuperPOD deployment guide (A100/H100)"
+   }
+  ],
+  "question": "You roll a driver upgrade across 500 nodes. What are your gates and your rollback trigger?"
+ },
+ {
+  "id": "B1",
+  "domain": "B",
+  "level": "Foundation",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 5,
+  "title": "Build an XID decoder",
+  "jd": "JD: solve problems involving GPUs, drivers, firmware and distributed system interactions.",
+  "steps": [
+   "Read the XID catalog and tabulate these codes with meaning and action: 13, 31, 43, 45, 48, 62, 63, 64, 74, 79, 92, 94, 95, 119, 120.",
+   "Sort them into application-level (13, 31, 43), memory (48, 63, 64, 92, 94, 95), interconnect (74), bus (79) and firmware (119, 120).",
+   "Write <code>xidwatch.py</code> that follows <code>journalctl -k -f</code> for <code>NVRM: Xid</code>, maps each line to the table and prints severity plus recommended action.",
+   "Unit-test it with sample lines you write from the catalog format. No GPU needed."
+  ],
+  "deliverable_html": "xidwatch.py with tests and the classification table.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/DCGM",
+    "name": "NVIDIA/DCGM",
+    "note": "exposes XID counters through fields and health watches"
+   },
+   {
+    "url": "https://github.com/NVIDIA/dcgm-exporter",
+    "name": "NVIDIA/dcgm-exporter",
+    "note": "XID metric for Prometheus"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/deploy/pdf/XID_Errors.pdf",
+    "name": "NVIDIA XID Errors catalog (PDF)"
+   },
+   {
+    "url": "https://docs.nvidia.com/deploy/gpu-debug-guidelines/pdf/GPU_Debug_Guidelines.pdf",
+    "name": "NVIDIA GPU Debug Guidelines (PDF)"
+   },
+   {
+    "url": "https://www.repost.aws/knowledge-center/ec2-linux-troubleshoot-xid-errors",
+    "name": "AWS re:Post: troubleshoot Xid errors on EC2"
+   },
+   {
+    "url": "https://www.netdata.cloud/guides/nvidia-gpu/nvidia-gpu-xid-errors/",
+    "name": "Netdata: reading NVIDIA XID errors"
+   }
+  ],
+  "question": "Xid 79 appears in dmesg. What does it mean and what do you do? How does it differ from Xid 48 followed by 63 or 64?"
+ },
+ {
+  "id": "B2",
+  "domain": "B",
+  "level": "Foundation",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 6,
+  "title": "DCGM diagnostics, levels 1 to 4",
+  "jd": "JD: hands-on bring-up and validation of large-scale NVIDIA GPU platforms.",
+  "steps": [
+   "Install DCGM and run <code>dcgmi discovery -l</code>.",
+   "Run <code>dcgmi diag -r 1</code>, then <code>-r 2</code>, then <code>-r 3 --fail-early</code>. Save JSON with <code>-j</code>.",
+   "Compare your timings with the documented Hopper figures: r1 under 2.5 s, r2 under 10.5 min on 8 GPUs, r3 under 35 min on 8 GPUs, r4 under 2.25 h on 8 GPUs.",
+   "Write down which plugins each level adds: r2 adds PCIe/NVLink, memory and memory bandwidth; r3 adds diagnostic, targeted stress, targeted power, NVBandwidth and NCCL tests; r4 adds memtest and pulse.",
+   "Write a parser that turns the JSON into pass/fail per GPU per plugin."
+  ],
+  "deliverable_html": "dcgm_report.py and a table of your timings versus the docs.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/DCGM",
+    "name": "NVIDIA/DCGM",
+    "note": "diagnostics, health, fields"
+   },
+   {
+    "url": "https://github.com/NVIDIA/go-dcgm",
+    "name": "NVIDIA/go-dcgm",
+    "note": "Go bindings"
+   },
+   {
+    "url": "https://github.com/NVIDIA/dcgm-exporter",
+    "name": "NVIDIA/dcgm-exporter",
+    "note": "metrics exporter"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html",
+    "name": "DCGM Diagnostics (run levels r1-r4)"
+   },
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: Keeping 20,000 GPUs healthy"
+   }
+  ],
+  "question": "What does dcgmi diag -r 3 run that -r 2 does not, and when would you pay for -r 4 ?"
+ },
+ {
+  "id": "B3",
+  "domain": "B",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 8,
+  "title": "Burn-in and thermal or power throttling",
+  "jd": "JD: power and thermal envelopes; identify issues during early-stage bring-up.",
+  "steps": [
+   "Run <code>gpu-burn</code> for at least 30 minutes on every GPU. Run Hugging Face <code>gpu-fryer</code> as a second opinion.",
+   "Log temperature, power, SM clock and clock event reasons every second with <code>nvidia-smi dmon</code> or the query interface.",
+   "Plot time series. Identify where clocks drop and which reason is flagged (HW slowdown, power brake, thermal).",
+   "Run <code>cuda_memtest</code> to look for memory faults the stress test can miss.",
+   "Define a pass rule, for example: no uncorrectable ECC, no sustained HW slowdown, temperature below your threshold, clocks within a band of the median GPU."
+  ],
+  "deliverable_html": "burn-in report with plots and the pass rule.",
+  "gem_html": "<code>gpu-fryer</code> was built to qualify GPU nodes at a lab that trains large models. Modal's post shows how to run burn-in as a weekly active check.",
+  "repos": [
+   {
+    "url": "https://github.com/wilicc/gpu-burn",
+    "name": "wilicc/gpu-burn",
+    "note": "classic CUDA stress test"
+   },
+   {
+    "url": "https://github.com/huggingface/gpu-fryer",
+    "name": "huggingface/gpu-fryer",
+    "note": "GPU stress test written in Rust by Hugging Face"
+   },
+   {
+    "url": "https://github.com/ComputationalRadiationPhysics/cuda_memtest",
+    "name": "ComputationalRadiationPhysics/cuda_memtest",
+    "note": "GPU memory tester"
+   },
+   {
+    "url": "https://github.com/Syllo/nvtop",
+    "name": "Syllo/nvtop",
+    "note": "top-style GPU monitor"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: Keeping 20,000 GPUs healthy"
+   },
+   {
+    "url": "https://www.crusoe.ai/resources/blog/how-crusoe-burn-in-tests-every-node-before-it-reaches-you",
+    "name": "Crusoe: how every node is burn-in tested"
+   },
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   }
+  ],
+  "question": "How long do you burn in a new node and what usually fails first?"
+ },
+ {
+  "id": "B4",
+  "domain": "B",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 8,
+  "title": "Automated quarantine with NVSentinel (exploratory)",
+  "jd": "JD: analyze deployment data and identify operational risks; reduce manual break-fix.",
+  "steps": [
+   "Read the NVSentinel overview. List its monitors: GPU health (DCGM), syslog, cloud provider events, Kubernetes object monitor.",
+   "Deploy it on a single-GPU Kubernetes node following the docs.",
+   "Write one fault-quarantine rule in CEL and read how the circuit breaker prevents mass quarantine during cluster-wide events.",
+   "Try to simulate a fault event. Record what you could simulate and what needs real hardware faults.",
+   "Write a design note: when to reset one GPU versus reboot the node versus RMA."
+  ],
+  "deliverable_html": "Design note with screenshots of the quarantine, drain and remediation flow.",
+  "gem_html": "NVSentinel is new NVIDIA open source. Few candidates have read it, and it maps directly to JD language about operational risk.",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/NVSentinel",
+    "name": "NVIDIA/NVSentinel",
+    "note": "fault detection and remediation for GPU clusters"
+   },
+   {
+    "url": "https://github.com/kubernetes/node-problem-detector",
+    "name": "kubernetes/node-problem-detector",
+    "note": "generic node problem reporting"
+   },
+   {
+    "url": "https://github.com/medik8s/node-healthcheck-operator",
+    "name": "medik8s/node-healthcheck-operator",
+    "note": "node remediation workflow"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/nvsentinel",
+    "name": "NVSentinel documentation"
+   },
+   {
+    "url": "https://developer.nvidia.com/blog/automate-kubernetes-ai-cluster-health-with-nvsentinel/",
+    "name": "NVIDIA blog: automate K8s AI cluster health with NVSentinel"
+   }
+  ],
+  "question": "A node reports a recoverable GPU fault. Reset the GPU or reboot the node, and how do you decide?"
+ },
+ {
+  "id": "B5",
+  "domain": "B",
+  "level": "Senior",
+  "core": true,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 16,
+  "title": "Write the cluster acceptance runbook",
+  "jd": "JD: lead end-to-end bring-up for hyperscaler customers; deliver executive-level status.",
+  "steps": [
+   "Define stages in order: inventory, DCGM r3, gpu-burn, single-node NCCL over NVLink, nvbandwidth, <code>ibping</code> and <code>ib_*_bw</code>, multi-node all-reduce scaling, storage with fio, a reference training run, telemetry.",
+   "Put every threshold in one criteria file. Together's guide uses about 92% of theoretical fabric bandwidth as the multi-node all-reduce bar, for example 370 GB/s on a 400 GB/s fabric. Justify your own numbers.",
+   "Scale tests as groups: single node, pairs, racks, full cluster, so a failure points at a node, leaf or spine.",
+   "Run NVIDIA's Cluster Readiness Engine on a Kubernetes cluster and compare its report with your hand-built one.",
+   "Produce a report: pass/fail table, defect log, owner, disposition, and a go/no-go line."
+  ],
+  "deliverable_html": "Runbook, criteria file and a sample report. This is your strongest interview artifact.",
+  "gem_html": "NVCRE's <code>Diagnose</code> scale reruns failing groups with smaller membership until it isolates suspects. Copy that idea in your own tooling.",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+    "name": "NVIDIA/cluster-readiness-engine",
+    "note": "Kubernetes controller for workload-driven readiness validation"
+   },
+   {
+    "url": "https://github.com/NVIDIA/aicr",
+    "name": "NVIDIA/aicr",
+    "note": "AI Cluster Runtime: cluster configuration validation"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "communication benchmarks"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvbandwidth",
+    "name": "NVIDIA/nvbandwidth",
+    "note": "GPU memcpy bandwidth"
+   },
+   {
+    "url": "https://github.com/opencomputeproject/ocp-diag-core",
+    "name": "opencomputeproject/ocp-diag-core",
+    "note": "portable diagnostic result schema"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://developer.nvidia.com/blog/validate-gpu-cluster-readiness-before-ai-workloads-land",
+    "name": "NVIDIA blog: validate GPU cluster readiness"
+   },
+   {
+    "url": "https://docs.nvidia.com/cluster-readiness-engine/getting-started/your-first-certification",
+    "name": "NVCRE: your first certification"
+   },
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   },
+   {
+    "url": "https://www.crusoe.ai/resources/blog/how-crusoe-burn-in-tests-every-node-before-it-reaches-you",
+    "name": "Crusoe: how every node is burn-in tested"
+   }
+  ],
+  "question": "How do you validate a new 256-GPU cluster before handing it to the customer?"
+ },
+ {
+  "id": "C1",
+  "domain": "C",
+  "level": "Foundation",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 5,
+  "title": "Draw the node from memory",
+  "jd": "JD: PCIe topologies, NUMA, memory subsystem behavior.",
+  "steps": [
+   "Collect: <code>nvidia-smi topo -m</code>, <code>lspci -tv</code>, <code>lstopo</code>, <code>numactl -H</code>, <code>lscpu</code>, and <code>/sys/class/net/*/device/numa_node</code>.",
+   "Decode the topology legend: X, SYS, NODE, PHB, PXB, PIX, NV#. Note which pairs cross sockets.",
+   "Map each GPU to its closest NIC and CPU socket. Mark which GPU-NIC pairs sit under the same PCIe switch.",
+   "Draw the diagram and write three rules, for example 'bind rank N to NUMA node M and NIC K'."
+  ],
+  "deliverable_html": "Topology diagram and the three binding rules.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/open-mpi/hwloc",
+    "name": "open-mpi/hwloc",
+    "note": "lstopo and the topology library"
+   },
+   {
+    "url": "https://github.com/numactl/numactl",
+    "name": "numactl/numactl",
+    "note": "NUMA policy tools"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/cuda/gpudirect-rdma/",
+    "name": "NVIDIA GPUDirect RDMA documentation"
+   },
+   {
+    "url": "https://hpcadvisorycouncil.atlassian.net/wiki/spaces/HPCWORKS/pages/2791440385/GPUDirect+Benchmarking",
+    "name": "HPC Advisory Council: GPUDirect benchmarking"
+   }
+  ],
+  "question": "Draw an 8-GPU HGX node: GPUs, NVSwitches, NICs, CPUs. Where does GPUDirect RDMA traffic flow?"
+ },
+ {
+  "id": "C2",
+  "domain": "C",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 5,
+  "title": "Measure the NUMA mis-pinning penalty",
+  "jd": "JD: NUMA, memory subsystem behavior, node-level performance analysis.",
+  "steps": [
+   "List test cases with <code>nvbandwidth -l</code> and pick host-to-device and device-to-host copies.",
+   "Run them under <code>numactl --cpunodebind=&lt;local&gt; --membind=&lt;local&gt;</code>, then with the remote node.",
+   "Repeat while a memory-bandwidth hog runs on the local socket to show contention.",
+   "Capture memory controller traffic with Intel PCM if your CPU supports it.",
+   "Build a table of local versus remote bandwidth and latency with the percentage penalty."
+  ],
+  "deliverable_html": "Results table plus a paragraph you can say out loud in 30 seconds.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/nvbandwidth",
+    "name": "NVIDIA/nvbandwidth",
+    "note": "GPU copy bandwidth tests"
+   },
+   {
+    "url": "https://github.com/NVIDIA/cuda-samples",
+    "name": "NVIDIA/cuda-samples",
+    "note": "bandwidthTest, p2pBandwidthLatencyTest"
+   },
+   {
+    "url": "https://github.com/opcm/pcm",
+    "name": "opcm/pcm",
+    "note": "memory and PCIe counters on Intel CPUs"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://hpcadvisorycouncil.atlassian.net/wiki/spaces/HPCWORKS/pages/2791440385/GPUDirect+Benchmarking",
+    "name": "HPC Advisory Council: GPUDirect benchmarking"
+   }
+  ],
+  "question": "Why does CPU socket placement matter for a GPU and a NIC?"
+ },
+ {
+  "id": "C3",
+  "domain": "C",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 6,
+  "title": "PCIe link health, AER, ACS and IOMMU",
+  "jd": "JD: PCIe topologies, system firmware, BIOS/UEFI configuration.",
+  "steps": [
+   "For each GPU and NIC compare <code>LnkCap</code> and <code>LnkSta</code> from <code>lspci -vv</code>. Flag any down-trained link (for example x16 to x8, or a lower generation).",
+   "Read AER counters under <code>/sys/bus/pci/devices/*/</code> and grep <code>dmesg</code> for AER messages.",
+   "Check ACS control bits (<code>lspci -vvv | grep ACSCtl</code>) and whether the IOMMU is enabled.",
+   "NVIDIA's GPUDirect RDMA doc says the IOMMU must be disabled or in 1:1 pass-through and that the GPU and NIC must share the same upstream root complex. Write a check that tests for both.",
+   "Package everything as <code>pcie_check.sh</code> returning non-zero on any finding."
+  ],
+  "deliverable_html": "pcie_check.sh and a failing-example transcript you can talk through.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/gpu-admin-tools",
+    "name": "NVIDIA/gpu-admin-tools",
+    "note": "low-level GPU admin"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvbandwidth",
+    "name": "NVIDIA/nvbandwidth",
+    "note": "detect lost bandwidth after you fix a link"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/cuda/gpudirect-rdma/",
+    "name": "NVIDIA GPUDirect RDMA documentation"
+   },
+   {
+    "url": "https://hpcadvisorycouncil.atlassian.net/wiki/spaces/HPCWORKS/pages/2791440385/GPUDirect+Benchmarking",
+    "name": "HPC Advisory Council: GPUDirect benchmarking"
+   },
+   {
+    "url": "https://docs.nvidia.com/deploy/gpu-debug-guidelines/pdf/GPU_Debug_Guidelines.pdf",
+    "name": "NVIDIA GPU Debug Guidelines (PDF)"
+   }
+  ],
+  "question": "A GPU shows half the expected PCIe bandwidth. What do you check?"
+ },
+ {
+  "id": "C4",
+  "domain": "C",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 10,
+  "title": "Golden BIOS and firmware baseline",
+  "jd": "JD: system firmware, BIOS/UEFI configuration, power and thermal envelopes.",
+  "steps": [
+   "Pull BIOS attributes through Redfish (<code>/redfish/v1/Systems/&lt;id&gt;/Bios</code>) from a vendor simulator or two real servers.",
+   "Define a golden configuration for GPU nodes: IOMMU and ACS, SR-IOV, NUMA-per-socket mode, C-states, power profile, large BAR or above-4G decoding. Attribute names differ by vendor, so record the mapping.",
+   "Write a diff tool that lists drift between a node and the golden file.",
+   "Add firmware inventory (<code>/redfish/v1/UpdateService/FirmwareInventory</code>) and flag mixed versions across a rack."
+  ],
+  "deliverable_html": "bios_drift.py, the golden file and a drift report.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/DMTF/Redfish-Tacklebox",
+    "name": "DMTF/Redfish-Tacklebox",
+    "note": "Redfish utility scripts"
+   },
+   {
+    "url": "https://github.com/dell/iDRAC-Redfish-Scripting",
+    "name": "dell/iDRAC-Redfish-Scripting",
+    "note": "vendor example scripts"
+   },
+   {
+    "url": "https://github.com/DMTF/python-redfish-library",
+    "name": "DMTF/python-redfish-library",
+    "note": "Python client"
+   },
+   {
+    "url": "https://github.com/DMTF/Redfish-Mockup-Server",
+    "name": "DMTF/Redfish-Mockup-Server",
+    "note": "offline practice target"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.dmtf.org/standards/redfish",
+    "name": "DMTF Redfish standard (specs, schemas)"
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/",
+    "name": "NVIDIA DGX SuperPOD documentation hub"
+   }
+  ],
+  "question": "How would you detect and fix BIOS drift across 2,000 servers?"
+ },
+ {
+  "id": "D1",
+  "domain": "D",
+  "level": "Foundation",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 5,
+  "title": "Redfish 101 on a mockup server",
+  "jd": "JD: BMC, IPMI and Redfish for remote management, health monitoring and out-of-band debugging.",
+  "steps": [
+   "Start the Redfish Mockup Server with a sample mockup directory (see its README for flags).",
+   "Walk <code>/redfish/v1</code>: Systems, Chassis (thermal, power), Managers, LogServices (the SEL), UpdateService.",
+   "Write Python with the DMTF client that prints temperatures, fan states, PSU status and the last ten log entries.",
+   "Run the Redfish Service Validator against the mockup and read what it reports."
+  ],
+  "deliverable_html": "redfish_health.py and the validator output.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/DMTF/Redfish-Mockup-Server",
+    "name": "DMTF/Redfish-Mockup-Server",
+    "note": "serve a recorded Redfish tree"
+   },
+   {
+    "url": "https://github.com/DMTF/Redfish-Interface-Emulator",
+    "name": "DMTF/Redfish-Interface-Emulator",
+    "note": "dynamic emulator"
+   },
+   {
+    "url": "https://github.com/DMTF/python-redfish-library",
+    "name": "DMTF/python-redfish-library",
+    "note": "Python client"
+   },
+   {
+    "url": "https://github.com/DMTF/Redfish-Service-Validator",
+    "name": "DMTF/Redfish-Service-Validator",
+    "note": "conformance checks"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.dmtf.org/standards/redfish",
+    "name": "DMTF Redfish standard (specs, schemas)"
+   },
+   {
+    "url": "https://redfish.dmtf.org",
+    "name": "Redfish Developer Hub"
+   }
+  ],
+  "question": "IPMI versus Redfish: what changed and why do hyperscalers prefer Redfish?"
+ },
+ {
+  "id": "D2",
+  "domain": "D",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 8,
+  "title": "Boot OpenBMC in QEMU and talk to it two ways",
+  "jd": "JD: out-of-band debugging during early-stage bring-up.",
+  "steps": [
+   "Build an OpenBMC image for a QEMU target following the OpenBMC README, and boot it with the QEMU fork.",
+   "Reach its Redfish service (bmcweb) from the host with <code>curl</code>.",
+   "If IPMI is enabled in your image, run <code>ipmitool</code> for <code>sdr</code>, <code>sel list</code>, <code>chassis status</code>, <code>power status</code>.",
+   "Table the same facts as seen through IPMI and Redfish."
+  ],
+  "deliverable_html": "Comparison table and a screen recording or transcript.",
+  "gem_html": "Almost nobody on the candidate side has seen a BMC from the inside. Booting one is a cheap way to stand out.",
+  "repos": [
+   {
+    "url": "https://github.com/openbmc/openbmc",
+    "name": "openbmc/openbmc",
+    "note": "firmware stack"
+   },
+   {
+    "url": "https://github.com/openbmc/bmcweb",
+    "name": "openbmc/bmcweb",
+    "note": "Redfish web server"
+   },
+   {
+    "url": "https://github.com/openbmc/qemu",
+    "name": "openbmc/qemu",
+    "note": "QEMU fork with BMC machines"
+   },
+   {
+    "url": "https://github.com/ipmitool/ipmitool",
+    "name": "ipmitool/ipmitool",
+    "note": "IPMI client"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.dmtf.org/standards/redfish",
+    "name": "DMTF Redfish standard (specs, schemas)"
+   }
+  ],
+  "question": "What does a BMC do when the host OS is hung?"
+ },
+ {
+  "id": "D3",
+  "domain": "D",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 12,
+  "title": "Fleet out-of-band monitoring",
+  "jd": "JD: hardware health monitoring and out-of-band debugging; analyze product health trends.",
+  "steps": [
+   "Point a Redfish exporter at your mockup or real BMCs and scrape it with Prometheus.",
+   "Build Grafana panels: inlet temperature, fan speed, PSU redundancy, SEL critical entries.",
+   "Write alert rules for loss of PSU redundancy and rising inlet temperature across a rack.",
+   "Emit one diagnostic result in the OCP diagnostic output format using the Python library.",
+   "Join BMC temperatures with GPU temperatures from DCGM to separate a cooling problem from a workload problem."
+  ],
+  "deliverable_html": "Dashboard JSON, alert rules and one OCP-format result file.",
+  "gem_html": "OCP's diagnostic schema is what hyperscaler hardware teams use to standardize test output. Knowing it signals you have worked near the data center side.",
+  "repos": [
+   {
+    "url": "https://github.com/jenningsloy318/redfish_exporter",
+    "name": "jenningsloy318/redfish_exporter",
+    "note": "Redfish metrics exporter"
+   },
+   {
+    "url": "https://github.com/mrlhansen/idrac_exporter",
+    "name": "mrlhansen/idrac_exporter",
+    "note": "iDRAC exporter"
+   },
+   {
+    "url": "https://github.com/prometheus-community/ipmi_exporter",
+    "name": "prometheus-community/ipmi_exporter",
+    "note": "IPMI exporter"
+   },
+   {
+    "url": "https://github.com/dell/iDRAC-Telemetry-Reference-Tools",
+    "name": "dell/iDRAC-Telemetry-Reference-Tools",
+    "note": "streaming telemetry reference"
+   },
+   {
+    "url": "https://github.com/opencomputeproject/ocp-diag-core-python",
+    "name": "opencomputeproject/ocp-diag-core-python",
+    "note": "OCP diagnostic output in Python"
+   },
+   {
+    "url": "https://github.com/prometheus/alertmanager",
+    "name": "prometheus/alertmanager",
+    "note": "alert routing"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.opencompute.org/blog/ocp-diagnostic-framework-10-now-available",
+    "name": "OCP Diagnostic Framework 1.0"
+   },
+   {
+    "url": "https://www.dmtf.org/standards/redfish",
+    "name": "DMTF Redfish standard (specs, schemas)"
+   }
+  ],
+  "question": "Rack 14 has hot GPUs. How do you prove it is cooling and not workload?"
+ },
+ {
+  "id": "E1",
+  "domain": "E",
+  "level": "Foundation",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 6,
+  "title": "RDMA from zero on Soft-RoCE",
+  "jd": "JD: understanding of RDMA, congestion control and high-bandwidth interconnects in distributed AI workloads.",
+  "steps": [
+   "On an Ubuntu VM install <code>rdma-core</code>, the verbs utilities and <code>perftest</code>.",
+   "Create a software RDMA device on the VM NIC: <code>sudo rdma link add rxe0 type rxe netdev &lt;nic&gt;</code>. Confirm with <code>ibv_devices</code> and <code>ibv_devinfo</code>.",
+   "Run <code>ib_write_bw</code> as server and client across two VMs, then <code>ib_send_lat</code>. Sweep message sizes with <code>-a</code>.",
+   "Compare against <code>iperf3</code> over TCP on the same pair.",
+   "Write one page explaining queue pairs, memory regions, protection domains and completion queues in your own words."
+  ],
+  "deliverable_html": "Notes plus a results table. Numbers are meaningless in absolute terms; the commands and concepts are the point.",
+  "gem_html": "Soft-RoCE gives you a free RDMA lab on any Linux VM. Most RDMA tutorials assume you own ConnectX cards.",
+  "repos": [
+   {
+    "url": "https://github.com/linux-rdma/rdma-core",
+    "name": "linux-rdma/rdma-core",
+    "note": "verbs, rxe, infiniband-diags"
+   },
+   {
+    "url": "https://github.com/linux-rdma/perftest",
+    "name": "linux-rdma/perftest",
+    "note": "ib_write_bw, ib_send_lat and friends"
+   },
+   {
+    "url": "https://github.com/linux-rdma/qperf",
+    "name": "linux-rdma/qperf",
+    "note": "quick RDMA latency and bandwidth"
+   },
+   {
+    "url": "https://github.com/esnet/iperf",
+    "name": "esnet/iperf",
+    "note": "TCP baseline"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://networking-docs.nvidia.com/ufmenterpriseum/6242/diagnostic-utilities",
+    "name": "NVIDIA UFM: InfiniBand diagnostic utilities"
+   }
+  ],
+  "question": "Explain RDMA to a cloud engineer in 60 seconds. Why does it matter for all-reduce?"
+ },
+ {
+  "id": "E2",
+  "domain": "E",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 10,
+  "title": "EFA on AWS, validated the way ProServe would",
+  "jd": "JD stand-out: knowledge of compute and networking at hyperscalers and CSPs.",
+  "steps": [
+   "Launch two EFA-capable instances in one cluster placement group. Use a security group that allows all traffic from itself.",
+   "Install the EFA software, then check <code>fi_info -p efa -t FI_EP_RDM</code> and <code>ibv_devinfo</code> on both nodes.",
+   "Install the aws-ofi-nccl plugin and confirm NCCL picks it up with <code>NCCL_DEBUG=INFO</code>.",
+   "Use the HyperPod validation script from the docs to print EFA installer, libfabric, NCCL, plugin, driver and CUDA versions. Their example shows 32 EFA interfaces on a P5-class node.",
+   "Record the version matrix you ran. The doc's example pairs are illustrative; always check current release notes."
+  ],
+  "deliverable_html": "efa-versions report on two nodes and a compatibility matrix.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws/aws-ofi-nccl",
+    "name": "aws/aws-ofi-nccl",
+    "note": "libfabric plugin that connects NCCL to EFA"
+   },
+   {
+    "url": "https://github.com/ofiwg/libfabric",
+    "name": "ofiwg/libfabric",
+    "note": "the fabric API behind EFA"
+   },
+   {
+    "url": "https://github.com/aws-samples/awsome-distributed-training",
+    "name": "aws-samples/awsome-distributed-training",
+    "note": "reference architectures, micro-benchmarks and validation"
+   },
+   {
+    "url": "https://github.com/awslabs/ai-on-sagemaker-hyperpod",
+    "name": "awslabs/ai-on-sagemaker-hyperpod",
+    "note": "docs and validation scripts"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://awslabs.github.io/ai-on-sagemaker-hyperpod/docs/slurm-orchestration/validation-and-testing/environment-validation/efa-validation",
+    "name": "HyperPod docs: EFA validation"
+   },
+   {
+    "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html",
+    "name": "AWS: maximize bandwidth on multi-NIC instances (EFA)"
+   }
+  ],
+  "question": "NCCL falls back to sockets on an EFA cluster. What are your first three checks?"
+ },
+ {
+  "id": "E3",
+  "domain": "E",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 8,
+  "title": "InfiniBand diagnostics cheat sheet (study task)",
+  "jd": "JD: high-performance networking technologies and interconnects.",
+  "steps": [
+   "Read the UFM diagnostic utilities page. List <code>ibstat</code>, <code>iblinkinfo</code>, <code>ibnetdiscover</code>, <code>perfquery</code>, <code>ibdiagnet</code> and what each shows.",
+   "For <code>perfquery</code> counters build a table of symbol errors, link-downed, receive errors and transmit discards with likely cause and action.",
+   "Read how the subnet manager works through the OpenSM source tree and README.",
+   "You cannot build a free IB lab. Check whether NVIDIA LaunchPad, a partner lab or a colleague's cluster is available, and annotate real command output when you get access."
+  ],
+  "deliverable_html": "One-page IB link-health cheat sheet. State plainly which entries you have not yet seen on hardware.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/linux-rdma/rdma-core",
+    "name": "linux-rdma/rdma-core",
+    "note": "includes the infiniband-diags tools"
+   },
+   {
+    "url": "https://github.com/linux-rdma/opensm",
+    "name": "linux-rdma/opensm",
+    "note": "InfiniBand subnet manager"
+   },
+   {
+    "url": "https://github.com/linux-rdma/perftest",
+    "name": "linux-rdma/perftest",
+    "note": "bandwidth and latency tests"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://networking-docs.nvidia.com/ufmenterpriseum/6242/diagnostic-utilities",
+    "name": "NVIDIA UFM: InfiniBand diagnostic utilities"
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/abstract.html",
+    "name": "DGX SuperPOD reference architecture (H100)"
+   }
+  ],
+  "question": "A link has a rising symbol error counter. What do you do before you replace the cable?"
+ },
+ {
+  "id": "E4",
+  "domain": "E",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 12,
+  "title": "Design a 512-GPU fabric on paper",
+  "jd": "JD: congestion control and high-bandwidth interconnects; leadership across multi-team infrastructure challenges.",
+  "steps": [
+   "Assume 64 nodes with 8 GPUs and 8 compute NICs each. State your switch radix and link speed explicitly.",
+   "Lay out a rail-optimized leaf-spine fabric. Compute leaf count, spine count, uplinks and cable count for 1:1 and 2:1 oversubscription.",
+   "Compare with the DGX SuperPOD reference architecture. Note where and why you differ.",
+   "Describe PFC, ECN and DCQCN at concept level and where each is configured in a RoCE design versus InfiniBand's credit-based flow control.",
+   "Show how topology reaches the schedulers (Topograph for Slurm and Kubernetes) so jobs are placed close together."
+  ],
+  "deliverable_html": "A three-page design doc with a bill-of-materials table.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/topograph",
+    "name": "NVIDIA/topograph",
+    "note": "exports cluster topology to Slurm and Kubernetes"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl",
+    "name": "NVIDIA/nccl",
+    "note": "topology detection and algorithm choice"
+   },
+   {
+    "url": "https://github.com/facebookresearch/param",
+    "name": "facebookresearch/param",
+    "note": "communication and compute benchmarks"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/abstract.html",
+    "name": "DGX SuperPOD reference architecture (H100)"
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/",
+    "name": "NVIDIA DGX SuperPOD documentation hub"
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0"
+   },
+   {
+    "url": "https://arxiv.org/pdf/2407.21783",
+    "name": "The Llama 3 Herd of Models (see infrastructure and reliability sections)"
+   }
+  ],
+  "question": "Why does a 1,024-GPU job want a rail-optimized network?"
+ },
+ {
+  "id": "E5",
+  "domain": "E",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 8,
+  "title": "GPUDirect RDMA and the storage path",
+  "jd": "JD: RDMA and distributed AI workloads; PCIe topology effects.",
+  "steps": [
+   "On a ConnectX or EFA node check that the peer-memory module is loaded (<code>lsmod | grep peermem</code>, <code>modprobe nvidia-peermem</code> where applicable).",
+   "Run <code>NCCL_DEBUG=INFO</code> and look for lines showing the network transport and whether GPUDirect is used.",
+   "Run <code>ib_write_bw --use_cuda=&lt;gpu&gt;</code> to move data GPU to GPU and compare with host-memory runs.",
+   "Run GDRCopy tests and read how GPUDirect Storage uses <code>nvidia-fs</code>.",
+   "Tie back to C1: show bandwidth when the NIC and GPU share a PCIe switch versus cross a socket."
+  ],
+  "deliverable_html": "A short report with the four measurements and a topology-versus-bandwidth conclusion. If you lack hardware, run the commands on a borrowed node and cite it.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/gdrcopy",
+    "name": "NVIDIA/gdrcopy",
+    "note": "low-latency GPU memory copies via GPUDirect RDMA"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gds-nvidia-fs",
+    "name": "NVIDIA/gds-nvidia-fs",
+    "note": "GPUDirect Storage kernel driver"
+   },
+   {
+    "url": "https://github.com/linux-rdma/perftest",
+    "name": "linux-rdma/perftest",
+    "note": "CUDA-aware bandwidth tests"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "end-to-end check"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/cuda/gpudirect-rdma/",
+    "name": "NVIDIA GPUDirect RDMA documentation"
+   },
+   {
+    "url": "https://hpcadvisorycouncil.atlassian.net/wiki/spaces/HPCWORKS/pages/2791440385/GPUDirect+Benchmarking",
+    "name": "HPC Advisory Council: GPUDirect benchmarking"
+   }
+  ],
+  "question": "What must be true for GPUDirect RDMA to be fast on a given server?"
+ },
+ {
+  "id": "F1",
+  "domain": "F",
+  "level": "Foundation",
+  "core": true,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 6,
+  "title": "nccl-tests on one node and the busbw formula",
+  "jd": "JD: NCCL, NVSwitch/NVLink and performance tuning.",
+  "steps": [
+   "Build <code>nccl-tests</code> and run <code>all_reduce_perf -b 8 -e 8G -f 2 -g &lt;num_gpus&gt;</code>.",
+   "Derive busbw from algbw: for all-reduce multiply by 2(n-1)/n; for all-gather and reduce-scatter by (n-1)/n; broadcast uses a factor of 1.",
+   "Compare busbw at large messages with the NVLink bandwidth your node should reach.",
+   "Run all-gather, reduce-scatter and all-to-all. Toggle <code>NCCL_ALGO</code> between Ring and Tree and note when each wins.",
+   "Save CSV and make a latency-versus-size and busbw-versus-size plot."
+  ],
+  "deliverable_html": "Plots, CSVs and a table of the formulas with your own measurements.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "the benchmark suite"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl",
+    "name": "NVIDIA/nccl",
+    "note": "library source"
+   },
+   {
+    "url": "https://github.com/coreweave/nccl-tests",
+    "name": "coreweave/nccl-tests",
+    "note": "container-ready build and job examples"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md",
+    "name": "nccl-tests PERFORMANCE.md (algbw vs busbw)"
+   },
+   {
+    "url": "https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html",
+    "name": "NCCL environment variables"
+   }
+  ],
+  "question": "What is the difference between algbw and busbw, and why does busbw exist?"
+ },
+ {
+  "id": "F2",
+  "domain": "F",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 10,
+  "title": "Scale 1 to 2 to 4 nodes, with and without EFA",
+  "jd": "JD: bring-up of multi-node architectures; identify bottlenecks at the network layer.",
+  "steps": [
+   "Launch the job under Slurm with <code>sbatch</code> using the micro-benchmark scripts from the AWS distributed-training repo.",
+   "Run all-reduce at 1, 2 and 4 nodes. Record busbw at large sizes.",
+   "Repeat with the EFA path disabled to measure the fallback cost.",
+   "Sweep <code>NCCL_IB_HCA</code>, <code>NCCL_SOCKET_IFNAME</code> and <code>NCCL_ALGO</code> and keep what changed results.",
+   "Report efficiency per node count and name the first point where it drops."
+  ],
+  "deliverable_html": "A scaling table and a three-sentence interpretation.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws-samples/awsome-distributed-training",
+    "name": "aws-samples/awsome-distributed-training",
+    "note": "micro-benchmarks and Slurm launch scripts"
+   },
+   {
+    "url": "https://github.com/aws/aws-ofi-nccl",
+    "name": "aws/aws-ofi-nccl",
+    "note": "EFA transport"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "the benchmark"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://awslabs.github.io/ai-on-sagemaker-hyperpod/docs/slurm-orchestration/validation-and-testing/environment-validation/efa-validation",
+    "name": "HyperPod docs: EFA validation"
+   },
+   {
+    "url": "https://docs.nebius.com/slurm-soperator/jobs/examples/nccl-all-reduce",
+    "name": "Nebius Soperator: NCCL all-reduce example"
+   },
+   {
+    "url": "https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html",
+    "name": "NCCL environment variables"
+   }
+  ],
+  "question": "busbw drops from 2 nodes to 4. Where do you look?"
+ },
+ {
+  "id": "F3",
+  "domain": "F",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 10,
+  "title": "Debug a hang and a straggler",
+  "jd": "JD: solve problems involving distributed system interactions.",
+  "steps": [
+   "Write a <code>torchrun</code> loop that does all-reduce in a loop. Make one rank slow, for example by sleeping or reducing that GPU's power limit.",
+   "Reproduce a hang by killing one rank and watch what the others do. Collect <code>NCCL_DEBUG=INFO</code> plus <code>NCCL_DEBUG_SUBSYS</code> logs.",
+   "Add straggler detection from NVIDIA's resiliency extension and compare it to what you saw by hand.",
+   "Try fault-tolerant training with torchft semantics and note what recovers automatically.",
+   "Write an incident report in the form: symptom, hypotheses, evidence, fix."
+  ],
+  "deliverable_html": "Incident report and the repro scripts.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/nvidia-resiliency-ext",
+    "name": "NVIDIA/nvidia-resiliency-ext",
+    "note": "fault tolerance, straggler detection, async and local checkpointing"
+   },
+   {
+    "url": "https://github.com/meta-pytorch/torchft",
+    "name": "meta-pytorch/torchft",
+    "note": "fault-tolerant training"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl",
+    "name": "NVIDIA/nccl",
+    "note": "source for reading the logs"
+   },
+   {
+    "url": "https://github.com/pytorch/pytorch",
+    "name": "pytorch/pytorch",
+    "note": "distributed backend"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html",
+    "name": "NCCL environment variables"
+   },
+   {
+    "url": "https://arxiv.org/pdf/2407.21783",
+    "name": "The Llama 3 Herd of Models (see infrastructure and reliability sections)"
+   }
+  ],
+  "question": "A 64-GPU job hangs after 4 hours. How do you find the cause?"
+ },
+ {
+  "id": "F4",
+  "domain": "F",
+  "level": "Senior",
+  "core": true,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 12,
+  "title": "Find the bad node by bisection",
+  "jd": "JD: identify bottlenecks at cluster, node, accelerator and network layers.",
+  "steps": [
+   "Write a script that runs two-node all-reduce across pairs from a node list under Slurm.",
+   "Implement group testing: split into groups, test, then re-test failing groups with smaller membership until the suspect set stops shrinking.",
+   "Output a suspect list with evidence (busbw, errors seen, XIDs on the node).",
+   "Compare with NVCRE's <code>Diagnose</code> mode, which does adaptive fault isolation down to a minimum group size.",
+   "Add a Slurm health check hook so a flagged node is drained automatically."
+  ],
+  "deliverable_html": "bisect_nodes.py plus a simulated run with a planted bad node.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+    "name": "NVIDIA/cluster-readiness-engine",
+    "note": "adaptive fault isolation reference"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "test payload"
+   },
+   {
+    "url": "https://github.com/mej/nhc",
+    "name": "mej/nhc",
+    "note": "Node Health Check for Slurm"
+   },
+   {
+    "url": "https://github.com/SchedMD/slurm",
+    "name": "SchedMD/slurm",
+    "note": "scheduler"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://developer.nvidia.com/blog/validate-gpu-cluster-readiness-before-ai-workloads-land",
+    "name": "NVIDIA blog: validate GPU cluster readiness"
+   },
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   }
+  ],
+  "question": "One node out of 200 slows every all-reduce. How do you find it without testing all 200 pairs?"
+ },
+ {
+  "id": "G1",
+  "domain": "G",
+  "level": "Foundation",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 6,
+  "title": "Slurm in Docker with fake GPUs",
+  "jd": "JD stand-out and role context: SLURM and Kubernetes for distributed workloads.",
+  "steps": [
+   "Bring up a Slurm cluster in containers and run <code>sinfo</code>, <code>squeue</code>, <code>sbatch</code>, <code>srun</code>, <code>sacct</code>.",
+   "Add a gres entry that emulates GPUs in <code>gres.conf</code> and request them with <code>--gres=gpu:2</code>.",
+   "Enable cgroup constraints and show a job cannot see devices it was not given.",
+   "Write a simple prolog script that fails a node when a check returns non-zero."
+  ],
+  "deliverable_html": "A compose file and an sbatch cookbook.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/giovtorres/slurm-docker-cluster",
+    "name": "giovtorres/slurm-docker-cluster",
+    "note": "Slurm in Docker Compose"
+   },
+   {
+    "url": "https://github.com/SchedMD/slurm",
+    "name": "SchedMD/slurm",
+    "note": "source and docs"
+   },
+   {
+    "url": "https://github.com/OpenHPC/ohpc",
+    "name": "OpenHPC/ohpc",
+    "note": "reference HPC stack"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://slinky.schedmd.com/",
+    "name": "Slinky documentation (SchedMD / NVIDIA)"
+   }
+  ],
+  "question": "How does Slurm keep one job's GPUs invisible to another?"
+ },
+ {
+  "id": "G2",
+  "domain": "G",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 12,
+  "title": "Slurm on real GPU nodes with containers and health checks",
+  "jd": "JD: SLURM and Kubernetes for training on GPUs; node-level health.",
+  "steps": [
+   "Configure <code>gres.conf</code> with NVML autodetect and <code>cgroup.conf</code> with device constraints.",
+   "Install Pyxis and Enroot and run a container job with <code>srun --container-image</code>.",
+   "Run nccl-tests inside that container across all node GPUs.",
+   "Add Node Health Check as a prolog or periodic check that tests GPU count and XIDs, and drains the node when it fails.",
+   "Prove isolation by launching two jobs at once and showing each sees only its GPUs."
+  ],
+  "deliverable_html": "Config files and a session transcript.",
+  "gem_html": "Node Health Check is the long-standing HPC answer to 'how do you keep a bad node out of the queue' and many production sites still run it.",
+  "repos": [
+   {
+    "url": "https://github.com/SchedMD/slurm",
+    "name": "SchedMD/slurm",
+    "note": "scheduler"
+   },
+   {
+    "url": "https://github.com/NVIDIA/pyxis",
+    "name": "NVIDIA/pyxis",
+    "note": "Slurm plugin for containers"
+   },
+   {
+    "url": "https://github.com/NVIDIA/enroot",
+    "name": "NVIDIA/enroot",
+    "note": "unprivileged container runtime for HPC"
+   },
+   {
+    "url": "https://github.com/mej/nhc",
+    "name": "mej/nhc",
+    "note": "Node Health Check"
+   },
+   {
+    "url": "https://github.com/NVIDIA/deepops",
+    "name": "NVIDIA/deepops",
+    "note": "deployment automation for GPU clusters"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://slinky.schedmd.com/",
+    "name": "Slinky documentation (SchedMD / NVIDIA)"
+   },
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   }
+  ],
+  "question": "Which health checks would you run at job start versus continuously?"
+ },
+ {
+  "id": "G3",
+  "domain": "G",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 14,
+  "title": "Provision the same cluster on three clouds",
+  "jd": "JD stand-out: compute and networking infrastructure at hyperscalers or cloud service providers.",
+  "steps": [
+   "Pick one Slurm cluster recipe each from AWS, Azure and Google Cloud repos and read their network and storage choices side by side.",
+   "Build at least one for real with IaC, then record time-to-first-job and every failure you hit.",
+   "Note how each exposes health checks and replacement of bad nodes.",
+   "Summarize in a matrix: provisioning tool, image build, scheduler, interconnect, storage, health tooling."
+  ],
+  "deliverable_html": "Comparison matrix plus a post-mortem of your build.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws/aws-parallelcluster",
+    "name": "aws/aws-parallelcluster",
+    "note": "AWS HPC cluster manager"
+   },
+   {
+    "url": "https://github.com/aws-samples/awsome-distributed-training",
+    "name": "aws-samples/awsome-distributed-training",
+    "note": "HyperPod and ParallelCluster architectures"
+   },
+   {
+    "url": "https://github.com/Azure/cyclecloud-slurm",
+    "name": "Azure/cyclecloud-slurm",
+    "note": "Slurm on Azure CycleCloud"
+   },
+   {
+    "url": "https://github.com/Azure/azurehpc",
+    "name": "Azure/azurehpc",
+    "note": "Azure HPC scripts"
+   },
+   {
+    "url": "https://github.com/GoogleCloudPlatform/cluster-toolkit",
+    "name": "GoogleCloudPlatform/cluster-toolkit",
+    "note": "Google HPC and AI cluster blueprints"
+   },
+   {
+    "url": "https://github.com/nebius/nebius-solutions-library",
+    "name": "nebius/nebius-solutions-library",
+    "note": "Nebius Terraform and Slurm recipes"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html",
+    "name": "AWS: maximize bandwidth on multi-NIC instances (EFA)"
+   },
+   {
+    "url": "https://docs.cloud.google.com/compute/docs/troubleshooting/troubleshooting-gpus",
+    "name": "Google Cloud: troubleshoot GPU VMs"
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0"
+   }
+  ],
+  "question": "Compare how three clouds expose the GPU fabric to a customer."
+ },
+ {
+  "id": "G4",
+  "domain": "G",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 10,
+  "title": "Slurm on Kubernetes decision memo (Slinky, Soperator, Kueue)",
+  "jd": "JD: SLURM and Kubernetes; influence without authority across product, engineering and customers.",
+  "steps": [
+   "Stand up Slinky's slurm-operator on a kind cluster (no GPUs required) and read what slurm-bridge changes about scheduling.",
+   "Read Soperator's design and the NCCL example from Nebius docs.",
+   "Add Topograph to the picture: how topology reaches Slurm and the Kubernetes scheduler.",
+   "Write a decision matrix: bare-metal Slurm, Slinky, Soperator, plain Kubernetes with Kueue. Criteria: tenancy, gang scheduling, topology awareness, ops burden, migration cost."
+  ],
+  "deliverable_html": "Two-page memo with a recommendation for two customer archetypes.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/SlinkyProject/slurm-operator",
+    "name": "SlinkyProject/slurm-operator",
+    "note": "Slurm clusters on Kubernetes"
+   },
+   {
+    "url": "https://github.com/SlinkyProject/slurm-bridge",
+    "name": "SlinkyProject/slurm-bridge",
+    "note": "Kubernetes scheduler integration"
+   },
+   {
+    "url": "https://github.com/SlinkyProject/containers",
+    "name": "SlinkyProject/containers",
+    "note": "images"
+   },
+   {
+    "url": "https://github.com/nebius/soperator",
+    "name": "nebius/soperator",
+    "note": "Slurm on Kubernetes operator"
+   },
+   {
+    "url": "https://github.com/NVIDIA/topograph",
+    "name": "NVIDIA/topograph",
+    "note": "topology discovery"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/kueue",
+    "name": "kubernetes-sigs/kueue",
+    "note": "quota and queueing"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://slinky.schedmd.com/",
+    "name": "Slinky documentation (SchedMD / NVIDIA)"
+   },
+   {
+    "url": "https://docs.nebius.com/slurm-soperator/jobs/examples/nccl-all-reduce",
+    "name": "Nebius Soperator: NCCL all-reduce example"
+   }
+  ],
+  "question": "A customer asks Slurm or Kubernetes for training. How do you answer?"
+ },
+ {
+  "id": "G5",
+  "domain": "G",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 12,
+  "title": "Rack to OS: PXE-boot a cluster you built",
+  "jd": "JD: bring-up of next-generation platforms; BMC and out-of-band during early-stage bring-up.",
+  "steps": [
+   "Use Warewulf in KVM to PXE-boot two VMs from a node image.",
+   "Draw the full boot flow: BMC power-on, DHCP, TFTP or iPXE, kernel and initramfs, image, config management.",
+   "Read how MAAS, Tinkerbell, Metal3 and OpenStack Ironic solve the same problem and where Redfish power control fits in each.",
+   "Map the pieces to NVIDIA's own approach in the DGX SuperPOD deployment guide."
+  ],
+  "deliverable_html": "Working two-VM cluster and a boot-flow diagram.",
+  "gem_html": "Cloud engineers rarely see how a server becomes a node. This one task fills the biggest conceptual hole between your AWS background and a bring-up role.",
+  "repos": [
+   {
+    "url": "https://github.com/warewulf/warewulf",
+    "name": "warewulf/warewulf",
+    "note": "image-based cluster provisioning"
+   },
+   {
+    "url": "https://github.com/xcat2/xcat-core",
+    "name": "xcat2/xcat-core",
+    "note": "HPC cluster management"
+   },
+   {
+    "url": "https://github.com/canonical/maas",
+    "name": "canonical/maas",
+    "note": "metal as a service"
+   },
+   {
+    "url": "https://github.com/tinkerbell/tink",
+    "name": "tinkerbell/tink",
+    "note": "bare-metal workflow engine"
+   },
+   {
+    "url": "https://github.com/metal3-io/baremetal-operator",
+    "name": "metal3-io/baremetal-operator",
+    "note": "bare metal for Kubernetes"
+   },
+   {
+    "url": "https://github.com/openstack/ironic",
+    "name": "openstack/ironic",
+    "note": "bare-metal provisioning"
+   },
+   {
+    "url": "https://github.com/NVIDIA/deepops",
+    "name": "NVIDIA/deepops",
+    "note": "GPU cluster automation"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/deployment-guide-dgx-superpod/latest/",
+    "name": "DGX SuperPOD deployment guide (A100/H100)"
+   },
+   {
+    "url": "https://www.dmtf.org/standards/redfish",
+    "name": "DMTF Redfish standard (specs, schemas)"
+   }
+  ],
+  "question": "Walk me through how a bare-metal server becomes a Slurm or Kubernetes node."
+ },
+ {
+  "id": "H1",
+  "domain": "H",
+  "level": "Foundation",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 6,
+  "title": "GPU Operator on one node",
+  "jd": "JD: containers and drivers; Kubernetes for GPU workloads.",
+  "steps": [
+   "Install a single-node Kubernetes (k3s or kind with GPU passthrough where possible) and the GPU Operator via Helm.",
+   "List what it deploys: driver, container toolkit, device plugin, GPU feature discovery, DCGM exporter, node feature discovery.",
+   "Run a CUDA sample pod and read <code>kubectl describe node</code> for <code>nvidia.com/gpu</code> capacity and labels.",
+   "Redo with a preinstalled driver and the driver container turned off. Note the differences."
+  ],
+  "deliverable_html": "Helm values, a pod spec and a diagram of operator components.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/gpu-operator",
+    "name": "NVIDIA/gpu-operator",
+    "note": "operator"
+   },
+   {
+    "url": "https://github.com/NVIDIA/k8s-device-plugin",
+    "name": "NVIDIA/k8s-device-plugin",
+    "note": "device plugin"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gpu-feature-discovery",
+    "name": "NVIDIA/gpu-feature-discovery",
+    "note": "node labels"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/node-feature-discovery",
+    "name": "kubernetes-sigs/node-feature-discovery",
+    "note": "hardware labels"
+   },
+   {
+    "url": "https://github.com/k3s-io/k3s",
+    "name": "k3s-io/k3s",
+    "note": "lightweight Kubernetes"
+   }
+  ],
+  "docs": [],
+  "question": "What does the GPU Operator install and in what order?"
+ },
+ {
+  "id": "H2",
+  "domain": "H",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 8,
+  "title": "GPU sharing: time-slicing, MPS and MIG",
+  "jd": "JD: GPU platform knowledge; node and accelerator-level performance.",
+  "steps": [
+   "Configure time-slicing through the device plugin and run two pods on one GPU. Measure latency interference.",
+   "On an A100 or H100 list partition profiles (<code>nvidia-smi mig -lgip</code>) and apply one with <code>mig-parted</code>.",
+   "Run the same workloads on MIG partitions and compare isolation to time-slicing.",
+   "Write a one-page guide: when to use each, and what each cannot do."
+  ],
+  "deliverable_html": "Comparison table with measured numbers.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/mig-parted",
+    "name": "NVIDIA/mig-parted",
+    "note": "declarative MIG configuration"
+   },
+   {
+    "url": "https://github.com/NVIDIA/k8s-device-plugin",
+    "name": "NVIDIA/k8s-device-plugin",
+    "note": "time-slicing and MPS config"
+   },
+   {
+    "url": "https://github.com/NVIDIA/vgpu-device-manager",
+    "name": "NVIDIA/vgpu-device-manager",
+    "note": "vGPU management"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gpu-operator",
+    "name": "NVIDIA/gpu-operator",
+    "note": "MIG manager integration"
+   }
+  ],
+  "docs": [],
+  "question": "A tenant needs hard isolation on one GPU. Time-slicing, MPS or MIG, and why?"
+ },
+ {
+  "id": "H3",
+  "domain": "H",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 10,
+  "title": "Network Operator and RDMA in pods",
+  "jd": "JD: RDMA and high-bandwidth interconnects.",
+  "steps": [
+   "Render the Network Operator chart with <code>helm template</code> and explain each custom resource and operand.",
+   "List how pods get RDMA: shared device plugin, SR-IOV device plugin, Multus secondary network.",
+   "On hardware, run two pods with an RDMA resource request and <code>ib_write_bw</code> between them. Without hardware, document the expected spec and failure modes.",
+   "Write a troubleshooting tree: no resource advertised, pod stuck, wrong GID, low bandwidth."
+  ],
+  "deliverable_html": "Annotated manifests and a troubleshooting tree.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/Mellanox/network-operator",
+    "name": "Mellanox/network-operator",
+    "note": "operator for NVIDIA networking"
+   },
+   {
+    "url": "https://github.com/Mellanox/k8s-rdma-shared-dev-plugin",
+    "name": "Mellanox/k8s-rdma-shared-dev-plugin",
+    "note": "RDMA device plugin"
+   },
+   {
+    "url": "https://github.com/k8snetworkplumbingwg/multus-cni",
+    "name": "k8snetworkplumbingwg/multus-cni",
+    "note": "secondary pod networks"
+   },
+   {
+    "url": "https://github.com/k8snetworkplumbingwg/sriov-network-device-plugin",
+    "name": "k8snetworkplumbingwg/sriov-network-device-plugin",
+    "note": "SR-IOV device plugin"
+   },
+   {
+    "url": "https://github.com/k8snetworkplumbingwg/rdma-cni",
+    "name": "k8snetworkplumbingwg/rdma-cni",
+    "note": "RDMA CNI"
+   },
+   {
+    "url": "https://github.com/Mellanox/ib-kubernetes",
+    "name": "Mellanox/ib-kubernetes",
+    "note": "InfiniBand support"
+   },
+   {
+    "url": "https://github.com/Mellanox/nic-feature-discovery",
+    "name": "Mellanox/nic-feature-discovery",
+    "note": "NIC labels"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/",
+    "name": "NVIDIA DGX SuperPOD documentation hub"
+   }
+  ],
+  "question": "How does a pod get access to an RDMA NIC?"
+ },
+ {
+  "id": "H4",
+  "domain": "H",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 10,
+  "title": "Gang scheduling, quota and topology on fake nodes",
+  "jd": "JD: Kubernetes for distributed workloads; large-scale bring-up and operational workflows.",
+  "steps": [
+   "Create a kind cluster and add fake GPU nodes with KWOK that advertise <code>nvidia.com/gpu</code> capacity and topology labels.",
+   "Install Kueue and define a ClusterQueue per team with GPU quota and borrowing.",
+   "Submit a multi-pod JobSet that must start together. Show that a partial allocation does not start.",
+   "Repeat with KAI Scheduler or Volcano and compare behavior. Read LeaderWorkerSet for serving groups.",
+   "Use the scheduler simulator to replay a placement decision and explain it."
+  ],
+  "deliverable_html": "Manifests, a screen capture of preemption and gang start, and a comparison table.",
+  "gem_html": "KWOK lets you test scheduler behavior at scale on a laptop. It is the best free way to practice multi-tenant GPU scheduling.",
+  "repos": [
+   {
+    "url": "https://github.com/kubernetes-sigs/kwok",
+    "name": "kubernetes-sigs/kwok",
+    "note": "simulate thousands of nodes"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/kueue",
+    "name": "kubernetes-sigs/kueue",
+    "note": "job queueing and quota"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/jobset",
+    "name": "kubernetes-sigs/jobset",
+    "note": "multi-pod job API"
+   },
+   {
+    "url": "https://github.com/NVIDIA/KAI-Scheduler",
+    "name": "NVIDIA/KAI-Scheduler",
+    "note": "GPU-aware scheduler"
+   },
+   {
+    "url": "https://github.com/volcano-sh/volcano",
+    "name": "volcano-sh/volcano",
+    "note": "batch scheduling"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/lws",
+    "name": "kubernetes-sigs/lws",
+    "note": "leader-worker sets"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/kube-scheduler-simulator",
+    "name": "kubernetes-sigs/kube-scheduler-simulator",
+    "note": "inspect scheduling decisions"
+   },
+   {
+    "url": "https://github.com/kubeflow/trainer",
+    "name": "kubeflow/trainer",
+    "note": "distributed training jobs"
+   }
+  ],
+  "docs": [],
+  "question": "Two teams share 256 GPUs. How do you enforce quota and keep gangs from deadlocking?"
+ },
+ {
+  "id": "H5",
+  "domain": "H",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 8,
+  "title": "Dynamic Resource Allocation (DRA)",
+  "jd": "JD stand-out: current infrastructure knowledge for GPUs in Kubernetes.",
+  "steps": [
+   "Read the Kubernetes DRA page: DeviceClass, ResourceClaim and ResourceSlice. The page marks DRA stable since v1.35, first available in v1.30.",
+   "Deploy the example driver on kind and create a claim for a fake device.",
+   "Read NVIDIA's DRA driver README and note what it adds, including its multi-node NVLink support.",
+   "Write a comparison: device plugin counts versus DRA attributes. List a placement decision DRA makes possible."
+  ],
+  "deliverable_html": "A short writeup and a working example claim.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/kubernetes-sigs/dra-example-driver",
+    "name": "kubernetes-sigs/dra-example-driver",
+    "note": "reference driver"
+   },
+   {
+    "url": "https://github.com/NVIDIA/k8s-dra-driver-gpu",
+    "name": "NVIDIA/k8s-dra-driver-gpu",
+    "note": "NVIDIA's DRA driver"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/",
+    "name": "Kubernetes: Dynamic Resource Allocation"
+   }
+  ],
+  "question": "Why is DRA better than the device plugin model for NVLink-connected GPUs?"
+ },
+ {
+  "id": "H6",
+  "domain": "H",
+  "level": "Senior",
+  "core": false,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 12,
+  "title": "Node health automation: cordon, drain, reset, reboot",
+  "jd": "JD: operational risks and deployment health trends; unblock paths for scale-up.",
+  "steps": [
+   "Write a Node Problem Detector custom plugin that turns an XID pattern into a node condition.",
+   "Add a remediation controller (Node Health Check operator or NVSentinel) that cordons and drains.",
+   "Add a circuit breaker so a cluster-wide event does not drain everything.",
+   "Define when to reset one GPU, reboot the node, and open an RMA.",
+   "Test on a lab node and record time from fault to node back in service."
+  ],
+  "deliverable_html": "Plugin, remediation config, and a runbook with timings.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/kubernetes/node-problem-detector",
+    "name": "kubernetes/node-problem-detector",
+    "note": "node condition reporting"
+   },
+   {
+    "url": "https://github.com/medik8s/node-healthcheck-operator",
+    "name": "medik8s/node-healthcheck-operator",
+    "note": "remediation orchestration"
+   },
+   {
+    "url": "https://github.com/medik8s/self-node-remediation",
+    "name": "medik8s/self-node-remediation",
+    "note": "reboot-based remediation"
+   },
+   {
+    "url": "https://github.com/kubereboot/kured",
+    "name": "kubereboot/kured",
+    "note": "safe node reboots"
+   },
+   {
+    "url": "https://github.com/NVIDIA/NVSentinel",
+    "name": "NVIDIA/NVSentinel",
+    "note": "GPU-specific automation"
+   },
+   {
+    "url": "https://github.com/aws/eks-node-monitoring-agent",
+    "name": "aws/eks-node-monitoring-agent",
+    "note": "AWS node monitoring agent"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://developer.nvidia.com/blog/automate-kubernetes-ai-cluster-health-with-nvsentinel/",
+    "name": "NVIDIA blog: automate K8s AI cluster health with NVSentinel"
+   },
+   {
+    "url": "https://repost.aws/articles/ARUCjA1LovSjmKKyrbP17qag/implementing-health-checks-for-large-scale-ai-ml-training",
+    "name": "AWS re:Post: health checks for large-scale AI/ML training"
+   }
+  ],
+  "question": "How do you avoid a remediation loop that drains your whole cluster?"
+ },
+ {
+  "id": "H7",
+  "domain": "H",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 14,
+  "title": "Write a small operator with Kubebuilder",
+  "jd": "Practical Kubernetes depth: CRDs and operators are central to the GPU Operator, Network Operator and Slinky.",
+  "steps": [
+   "Scaffold a project with Kubebuilder and define a <code>GPUNodeAudit</code> CRD with spec (node selector, diagnostic level) and status (result, time).",
+   "Reconcile by creating a Job per matching node that runs a diagnostic and writes the result back.",
+   "Add RBAC, finalizers and status conditions. Test with <code>envtest</code>.",
+   "Read the GPU Operator's controller structure and write down three design patterns you borrowed."
+  ],
+  "deliverable_html": "A repository with CRD, controller, tests and a README.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/kubernetes-sigs/kubebuilder",
+    "name": "kubernetes-sigs/kubebuilder",
+    "note": "scaffolding framework"
+   },
+   {
+    "url": "https://github.com/operator-framework/operator-sdk",
+    "name": "operator-framework/operator-sdk",
+    "note": "alternative framework"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gpu-operator",
+    "name": "NVIDIA/gpu-operator",
+    "note": "real-world operator to read"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/cluster-api",
+    "name": "kubernetes-sigs/cluster-api",
+    "note": "large controller ecosystem"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://book.kubebuilder.io/",
+    "name": "The Kubebuilder Book"
+   }
+  ],
+  "question": "Describe a reconcile loop and how you make it idempotent."
+ },
+ {
+  "id": "H8",
+  "domain": "H",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 10,
+  "title": "Security policy pack for a GPU platform",
+  "jd": "Kubernetes security depth that interviewers probe, and your DevSecOps background gives you an edge.",
+  "steps": [
+   "Write admission policies in Kyverno or Gatekeeper: block privileged pods outside the operator namespace, require GPU limits on pods that request <code>nvidia.com/gpu</code>, deny hostPath mounts of <code>/dev</code>.",
+   "Add a Falco rule that alerts when an unexpected process opens <code>/dev/nvidia*</code>.",
+   "Scan CUDA base images with Trivy and set a policy on severity.",
+   "Read the confidential-computing tooling repo and write down which threat it addresses."
+  ],
+  "deliverable_html": "A policy repository with tests and a one-page threat model.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/kyverno/kyverno",
+    "name": "kyverno/kyverno",
+    "note": "policy engine"
+   },
+   {
+    "url": "https://github.com/open-policy-agent/gatekeeper",
+    "name": "open-policy-agent/gatekeeper",
+    "note": "OPA admission controller"
+   },
+   {
+    "url": "https://github.com/falcosecurity/falco",
+    "name": "falcosecurity/falco",
+    "note": "runtime detection"
+   },
+   {
+    "url": "https://github.com/aquasecurity/trivy",
+    "name": "aquasecurity/trivy",
+    "note": "image scanning"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvtrust",
+    "name": "NVIDIA/nvtrust",
+    "note": "confidential computing tooling"
+   }
+  ],
+  "docs": [],
+  "question": "How do you stop a tenant from running a privileged container on your GPU nodes?"
+ },
+ {
+  "id": "I1",
+  "domain": "I",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 8,
+  "title": "Decode GPU instances and fabrics across clouds",
+  "jd": "JD stand-out: compute and networking infrastructure (instance types, networking primitives, high-performance paths) at hyperscalers and CSPs.",
+  "steps": [
+   "Build a matrix for AWS, Azure, Google Cloud, OCI and two GPU clouds. Columns: GPU model and count, NVLink domain, NIC count and speed, fabric type (InfiniBand, RoCE, EFA, vendor-specific), scheduler offerings, health tooling.",
+   "Fill every cell from the vendor page or repo and cite it. Mark anything you could not confirm.",
+   "Read the Azure HPC health-check scripts and the Google GPU recipes to see how each cloud validates nodes.",
+   "Write a one-page 'what is different and why it matters for NCCL' summary."
+  ],
+  "deliverable_html": "Cited matrix and the summary page.",
+  "gem_html": "<code>azurehpc-health-checks</code> is production-style node validation from a hyperscaler. It is a template for your own checks.",
+  "repos": [
+   {
+    "url": "https://github.com/Azure/ai-infrastructure-on-azure",
+    "name": "Azure/ai-infrastructure-on-azure",
+    "note": "Azure AI infrastructure guides"
+   },
+   {
+    "url": "https://github.com/Azure/azurehpc-health-checks",
+    "name": "Azure/azurehpc-health-checks",
+    "note": "node health checks for Azure HPC and GPU VMs"
+   },
+   {
+    "url": "https://github.com/Azure/azhpc-images",
+    "name": "Azure/azhpc-images",
+    "note": "HPC VM images"
+   },
+   {
+    "url": "https://github.com/GoogleCloudPlatform/ai-on-gke",
+    "name": "GoogleCloudPlatform/ai-on-gke",
+    "note": "GKE AI reference"
+   },
+   {
+    "url": "https://github.com/AI-Hypercomputer/gpu-recipes",
+    "name": "AI-Hypercomputer/gpu-recipes",
+    "note": "GPU training recipes"
+   },
+   {
+    "url": "https://github.com/GoogleCloudPlatform/cluster-toolkit",
+    "name": "GoogleCloudPlatform/cluster-toolkit",
+    "note": "HPC blueprints"
+   },
+   {
+    "url": "https://github.com/oracle-quickstart/oci-hpc",
+    "name": "oracle-quickstart/oci-hpc",
+    "note": "OCI HPC"
+   },
+   {
+    "url": "https://github.com/coreweave/kubernetes-cloud",
+    "name": "coreweave/kubernetes-cloud",
+    "note": "CoreWeave examples"
+   },
+   {
+    "url": "https://github.com/awslabs/ai-on-eks",
+    "name": "awslabs/ai-on-eks",
+    "note": "AWS EKS AI blueprints"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html",
+    "name": "AWS: maximize bandwidth on multi-NIC instances (EFA)"
+   },
+   {
+    "url": "https://docs.cloud.google.com/compute/docs/troubleshooting/troubleshooting-gpus",
+    "name": "Google Cloud: troubleshoot GPU VMs"
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0"
+   }
+  ],
+  "question": "Why do two clouds with the same GPU deliver different all-reduce numbers?"
+ },
+ {
+  "id": "I2",
+  "domain": "I",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 10,
+  "title": "Land 1,024 GPUs: capacity, placement and rollout plan",
+  "jd": "JD: lead end-to-end execution for hyperscaler customers; take products from pilot to high-volume deployment.",
+  "steps": [
+   "Write the plan as phases: quota and capacity, placement and failure domains, network, images and drivers, validation gates, rollout waves, rollback.",
+   "State where your cloud-side knowledge applies: placement groups, capacity reservations, instance topology information, per-AZ limits.",
+   "Add the acceptance gates from B5 and the health automation from H6 as exit criteria for each wave.",
+   "List the risks and the three decisions you need from executives."
+  ],
+  "deliverable_html": "A five-page plan with a wave table.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws/aws-parallelcluster",
+    "name": "aws/aws-parallelcluster",
+    "note": "cluster automation"
+   },
+   {
+    "url": "https://github.com/awslabs/ai-on-eks",
+    "name": "awslabs/ai-on-eks",
+    "note": "blueprints"
+   },
+   {
+    "url": "https://github.com/GoogleCloudPlatform/cluster-toolkit",
+    "name": "GoogleCloudPlatform/cluster-toolkit",
+    "note": "blueprints"
+   },
+   {
+    "url": "https://github.com/NVIDIA/topograph",
+    "name": "NVIDIA/topograph",
+    "note": "topology awareness"
+   },
+   {
+    "url": "https://github.com/aws/karpenter-provider-aws",
+    "name": "aws/karpenter-provider-aws",
+    "note": "node provisioning on AWS"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://repost.aws/articles/ARUCjA1LovSjmKKyrbP17qag/implementing-health-checks-for-large-scale-ai-ml-training",
+    "name": "AWS re:Post: health checks for large-scale AI/ML training"
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0"
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/",
+    "name": "NVIDIA DGX SuperPOD documentation hub"
+   }
+  ],
+  "question": "You have 4 weeks to bring up 1,024 GPUs for a customer. What is your plan?"
+ },
+ {
+  "id": "I3",
+  "domain": "I",
+  "level": "Senior",
+  "core": false,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 12,
+  "title": "Storage for model load and checkpoints",
+  "jd": "JD: system bottleneck analysis; the mentoring call stressed storage tiers for model weights.",
+  "steps": [
+   "Run a fio matrix (sequential and random, read and write, several block sizes) on local NVMe, a parallel file system and an object-store mount.",
+   "Time loading a model checkpoint from each source and from a streaming loader.",
+   "Measure checkpoint write bandwidth and compute the training stall per save at your checkpoint interval.",
+   "Run the MLPerf Storage benchmark if you have the budget, or read its rules and results.",
+   "Recommend a tiering design: object store, cache, local NVMe, parallel FS."
+  ],
+  "deliverable_html": "Results table and the tiering recommendation.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/axboe/fio",
+    "name": "axboe/fio",
+    "note": "storage benchmark"
+   },
+   {
+    "url": "https://github.com/awslabs/mountpoint-s3",
+    "name": "awslabs/mountpoint-s3",
+    "note": "S3 file client"
+   },
+   {
+    "url": "https://github.com/awslabs/mountpoint-s3-csi-driver",
+    "name": "awslabs/mountpoint-s3-csi-driver",
+    "note": "S3 for Kubernetes"
+   },
+   {
+    "url": "https://github.com/awslabs/s3-connector-for-pytorch",
+    "name": "awslabs/s3-connector-for-pytorch",
+    "note": "S3 data loading for PyTorch"
+   },
+   {
+    "url": "https://github.com/coreweave/tensorizer",
+    "name": "coreweave/tensorizer",
+    "note": "fast model loading"
+   },
+   {
+    "url": "https://github.com/mlcommons/storage",
+    "name": "mlcommons/storage",
+    "note": "MLPerf Storage"
+   },
+   {
+    "url": "https://github.com/NVIDIA/gds-nvidia-fs",
+    "name": "NVIDIA/gds-nvidia-fs",
+    "note": "GPUDirect Storage"
+   },
+   {
+    "url": "https://github.com/NVIDIA/aistore",
+    "name": "NVIDIA/aistore",
+    "note": "distributed object store for AI"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   }
+  ],
+  "question": "A 70B model takes 12 minutes to load on each scale-out. How do you cut it?"
+ },
+ {
+  "id": "J1",
+  "domain": "J",
+  "level": "Practitioner",
+  "core": true,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 8,
+  "title": "GPU metrics pipeline end to end",
+  "jd": "JD: analyze deployment and performance data; identify trends, bottlenecks and operational risks.",
+  "steps": [
+   "Run <code>dcgm-exporter</code> and scrape with Prometheus. Use kube-prometheus on Kubernetes or a plain config on a host.",
+   "Build dashboards for GPU utilization, framebuffer used, power, temperature, XID errors, NVLink throughput, tensor-core activity.",
+   "Write alert rules for XID events, sustained high temperature and a GPU missing from the node.",
+   "For Slurm, read how the exporter can map GPU metrics to jobs through its job-mapping directory option.",
+   "Compare with <code>nvtop</code>, <code>nvitop</code> and <code>gpustat</code> for the on-box view."
+  ],
+  "deliverable_html": "Grafana JSON, alert rules and a screenshot.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/dcgm-exporter",
+    "name": "NVIDIA/dcgm-exporter",
+    "note": "GPU metrics for Prometheus"
+   },
+   {
+    "url": "https://github.com/prometheus-operator/kube-prometheus",
+    "name": "prometheus-operator/kube-prometheus",
+    "note": "monitoring stack"
+   },
+   {
+    "url": "https://github.com/dotdc/grafana-dashboards-kubernetes",
+    "name": "dotdc/grafana-dashboards-kubernetes",
+    "note": "dashboards"
+   },
+   {
+    "url": "https://github.com/utkuozdemir/nvidia_gpu_exporter",
+    "name": "utkuozdemir/nvidia_gpu_exporter",
+    "note": "nvidia-smi based exporter"
+   },
+   {
+    "url": "https://github.com/XuehaiPan/nvitop",
+    "name": "XuehaiPan/nvitop",
+    "note": "interactive GPU monitor"
+   },
+   {
+    "url": "https://github.com/wookayin/gpustat",
+    "name": "wookayin/gpustat",
+    "note": "compact GPU status"
+   },
+   {
+    "url": "https://github.com/influxdata/telegraf",
+    "name": "influxdata/telegraf",
+    "note": "metric collector used in Together's guide"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   },
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: Keeping 20,000 GPUs healthy"
+   }
+  ],
+  "question": "Which three GPU metrics do you alert on, and why not utilization alone?"
+ },
+ {
+  "id": "J2",
+  "domain": "J",
+  "level": "Senior",
+  "core": false,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 12,
+  "title": "Fleet reliability analytics",
+  "jd": "JD: identify product health trends, system bottlenecks and operational risks.",
+  "steps": [
+   "Define metrics: failures per 1,000 GPU-days, mean time between interruptions, XID rate by driver and firmware, time to repair.",
+   "Build a notebook that cohorts failures by rack, firmware and driver using your J1 data or a synthetic dataset shaped like the Llama 3 and reliability-paper categories.",
+   "Find a 'bad batch' signal and write what you would send to a product team.",
+   "Summarize in a one-page executive note: trend, cause, risk, decision."
+  ],
+  "deliverable_html": "Notebook and the one-page note.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/facebookresearch/param",
+    "name": "facebookresearch/param",
+    "note": "benchmarks used in Meta's work"
+   },
+   {
+    "url": "https://github.com/NVIDIA/dcgm-exporter",
+    "name": "NVIDIA/dcgm-exporter",
+    "note": "source of fleet fields"
+   },
+   {
+    "url": "https://github.com/prometheus/prometheus",
+    "name": "prometheus/prometheus",
+    "note": "time series store"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://arxiv.org/pdf/2407.21783",
+    "name": "The Llama 3 Herd of Models (see infrastructure and reliability sections)"
+   },
+   {
+    "url": "https://arxiv.org/html/2410.21680v1",
+    "name": "Revisiting Reliability in Large-Scale ML Research Clusters"
+   },
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: Keeping 20,000 GPUs healthy"
+   }
+  ],
+  "question": "How do you tell a bad GPU batch from a bad rack?"
+ },
+ {
+  "id": "J3",
+  "domain": "J",
+  "level": "Senior",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 6,
+  "title": "Executive communication drills",
+  "jd": "JD: executive-level communication on status, risks, progress and required decisions; influence without authority.",
+  "steps": [
+   "Write a weekly status for a fictional 2,048-GPU bring-up: RAG by stage, top risks, decisions needed this week.",
+   "Write an escalation email with a root-cause hypothesis, evidence and ask.",
+   "Make a stakeholder map for Product, Engineering, Sales, Operations and the cloud customer. For each: what they want and what you can offer.",
+   "Record yourself explaining a bottleneck diagnosis in 60 seconds. Replay and cut filler."
+  ],
+  "deliverable_html": "Status template, escalation template, stakeholder map and a recording.",
+  "gem_html": "",
+  "repos": [],
+  "docs": [
+   {
+    "url": "https://docs.nvidia.com/cluster-readiness-engine/getting-started/your-first-certification",
+    "name": "NVCRE: your first certification"
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0"
+   }
+  ],
+  "question": "Tell me about a time you aligned several teams without authority. (Use a ProServe engagement.)"
+ },
+ {
+  "id": "K1",
+  "domain": "K",
+  "level": "Foundation",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 8,
+  "title": "Transformer and cluster arithmetic",
+  "jd": "JD stand-out: familiarity with modern deep learning, LLM architectures and distributed training or inference challenges at scale.",
+  "steps": [
+   "Read the scaling book chapters on roofline, transformer math, parallelism and the GPU chapter.",
+   "Compute memory for a 70B model in BF16 for weights, gradients and Adam states, then decide what fits on 8 x 80 GB GPUs.",
+   "Compute KV cache size per token for a model you pick and see how context length changes batch size.",
+   "Estimate training FLOPs with 6 x parameters x tokens and turn it into GPU-days at a stated MFU.",
+   "Build a tiny GPT from the Karpathy walkthrough so the terms stop being abstract."
+  ],
+  "deliverable_html": "A notebook of worked examples.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/karpathy/build-nanogpt",
+    "name": "karpathy/build-nanogpt",
+    "note": "GPT from scratch"
+   },
+   {
+    "url": "https://github.com/stas00/ml-engineering",
+    "name": "stas00/ml-engineering",
+    "note": "practitioner reference"
+   },
+   {
+    "url": "https://github.com/jax-ml/scaling-book",
+    "name": "jax-ml/scaling-book",
+    "note": "source of the book"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://jax-ml.github.io/scaling-book/",
+    "name": "How to Scale Your Model (JAX scaling book)"
+   },
+   {
+    "url": "https://huggingface.co/spaces/nanotron/ultrascale-playbook",
+    "name": "The Ultra-Scale Playbook (Hugging Face)"
+   }
+  ],
+  "question": "Can a 70B model train on one 8 x 80 GB node? Show your math."
+ },
+ {
+  "id": "K2",
+  "domain": "K",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 12,
+  "title": "Parallelism and MFU on real hardware",
+  "jd": "JD stand-out: distributed training at scale; connect network measurements to training efficiency.",
+  "steps": [
+   "Run a reference training recipe at 1 and 2 nodes with FSDP, then with tensor or pipeline parallelism.",
+   "Compute MFU: achieved FLOPs divided by peak FLOPs. Record tokens per second.",
+   "Overlay your nccl-tests busbw numbers from F2 to explain where the gap comes from.",
+   "Read NVIDIA's benchmarking recipes to see how they structure comparable runs."
+  ],
+  "deliverable_html": "A table of config, tokens/s, MFU and the interpretation.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/pytorch/torchtitan",
+    "name": "pytorch/torchtitan",
+    "note": "reference PyTorch training stack"
+   },
+   {
+    "url": "https://github.com/huggingface/nanotron",
+    "name": "huggingface/nanotron",
+    "note": "3D parallel training"
+   },
+   {
+    "url": "https://github.com/LambdaLabsML/distributed-training-guide",
+    "name": "LambdaLabsML/distributed-training-guide",
+    "note": "step-by-step distributed training guide"
+   },
+   {
+    "url": "https://github.com/NVIDIA/Megatron-LM",
+    "name": "NVIDIA/Megatron-LM",
+    "note": "tensor and pipeline parallelism"
+   },
+   {
+    "url": "https://github.com/EleutherAI/cookbook",
+    "name": "EleutherAI/cookbook",
+    "note": "practical training notes"
+   },
+   {
+    "url": "https://github.com/NVIDIA/dgxc-benchmarking",
+    "name": "NVIDIA/dgxc-benchmarking",
+    "note": "NVIDIA benchmarking recipes; read the README for scope"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://huggingface.co/spaces/nanotron/ultrascale-playbook",
+    "name": "The Ultra-Scale Playbook (Hugging Face)"
+   }
+  ],
+  "question": "MFU is 25%. Name three places you would look."
+ },
+ {
+  "id": "K3",
+  "domain": "K",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 2,
+  "tier_label": "Tier 2 - multi-GPU node",
+  "hours": 8,
+  "title": "Checkpointing and failure recovery math",
+  "jd": "JD: distributed system interactions; operational risk at scale.",
+  "steps": [
+   "Enable async and local checkpointing with NVIDIA's resiliency extension in a small run.",
+   "Kill a rank and measure time to resume.",
+   "Compute an optimal checkpoint interval with the Young/Daly rule, using a stated checkpoint cost and mean time between failures.",
+   "Put your interval next to the interruption counts reported for Llama 3 and the reliability paper."
+  ],
+  "deliverable_html": "Resume-time measurement and the interval calculation.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/NVIDIA/nvidia-resiliency-ext",
+    "name": "NVIDIA/nvidia-resiliency-ext",
+    "note": "async and local checkpointing"
+   },
+   {
+    "url": "https://github.com/meta-pytorch/torchft",
+    "name": "meta-pytorch/torchft",
+    "note": "fault-tolerant training"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://arxiv.org/pdf/2407.21783",
+    "name": "The Llama 3 Herd of Models (see infrastructure and reliability sections)"
+   },
+   {
+    "url": "https://arxiv.org/html/2410.21680v1",
+    "name": "Revisiting Reliability in Large-Scale ML Research Clusters"
+   },
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: Keeping 20,000 GPUs healthy"
+   }
+  ],
+  "question": "How often should a 4,096-GPU job checkpoint?"
+ },
+ {
+  "id": "K4",
+  "domain": "K",
+  "level": "Practitioner",
+  "core": false,
+  "tier": 1,
+  "tier_label": "Tier 1 - one GPU",
+  "hours": 8,
+  "title": "Know the workload: serving side, kept short",
+  "jd": "Customers ask. The JD lists inference challenges at scale under stand-out skills.",
+  "steps": [
+   "Run vLLM on one GPU and measure time to first token, inter-token latency and throughput with AIPerf.",
+   "Compute KV cache needs and see where memory runs out.",
+   "Read how Dynamo and llm-d split prefill and decode and why that needs a fast transfer path (NIXL), then connect that back to E-tasks.",
+   "Write what infrastructure checks you would run before a customer deploys a disaggregated serving stack."
+  ],
+  "deliverable_html": "Benchmark numbers and a one-page pre-deployment checklist.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/vllm-project/vllm",
+    "name": "vllm-project/vllm",
+    "note": "serving engine"
+   },
+   {
+    "url": "https://github.com/ai-dynamo/dynamo",
+    "name": "ai-dynamo/dynamo",
+    "note": "NVIDIA's distributed inference framework"
+   },
+   {
+    "url": "https://github.com/ai-dynamo/aiperf",
+    "name": "ai-dynamo/aiperf",
+    "note": "benchmark tool"
+   },
+   {
+    "url": "https://github.com/ai-dynamo/nixl",
+    "name": "ai-dynamo/nixl",
+    "note": "inference transfer library"
+   },
+   {
+    "url": "https://github.com/llm-d/llm-d",
+    "name": "llm-d/llm-d",
+    "note": "Kubernetes-native distributed inference"
+   },
+   {
+    "url": "https://github.com/sgl-project/sglang",
+    "name": "sgl-project/sglang",
+    "note": "serving engine"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/inference-perf",
+    "name": "kubernetes-sigs/inference-perf",
+    "note": "inference benchmarking for Kubernetes"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/gateway-api-inference-extension",
+    "name": "kubernetes-sigs/gateway-api-inference-extension",
+    "note": "inference-aware routing"
+   }
+  ],
+  "docs": [],
+  "question": "What does a customer need in their network before they try disaggregated serving?"
+ },
+ {
+  "id": "L1",
+  "domain": "L",
+  "level": "Senior",
+  "core": true,
+  "tier": 3,
+  "tier_label": "Tier 3 - multi-node",
+  "hours": 30,
+  "title": "Capstone: GPU Bring-up and Validation Kit",
+  "jd": "Evidence for every JD line in one repository you can walk through in an interview.",
+  "steps": [
+   "Layout: <code>terraform/</code> (network, placement group, security group allowing self traffic, nodes), <code>ansible/</code> (driver, DCGM, EFA or OFED, container toolkit, nccl-tests, node health check), <code>tests/</code> (the B5 stages), <code>criteria.toml</code>, <code>reports/</code>.",
+   "One command builds a 2-node cluster, runs all stages and writes a signed-off or failed report.",
+   "Add a Kubernetes path with the GPU Operator and the Cluster Readiness Engine as a second validation method.",
+   "Add a runbook for each failure you injected: XID simulated line, down-trained link, wrong NUMA binding, EFA disabled.",
+   "README: architecture diagram, results table, cost per validation run, and what you would do differently at 2,000 GPUs."
+  ],
+  "deliverable_html": "Public repository with CI that regenerates the sample report from stored outputs.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws-ia/terraform-aws-eks-blueprints",
+    "name": "aws-ia/terraform-aws-eks-blueprints",
+    "note": "EKS patterns"
+   },
+   {
+    "url": "https://github.com/awslabs/ai-on-eks",
+    "name": "awslabs/ai-on-eks",
+    "note": "AI blueprints on EKS"
+   },
+   {
+    "url": "https://github.com/NVIDIA/deepops",
+    "name": "NVIDIA/deepops",
+    "note": "Ansible for GPU clusters"
+   },
+   {
+    "url": "https://github.com/NVIDIA/ansible-role-nvidia-driver",
+    "name": "NVIDIA/ansible-role-nvidia-driver",
+    "note": "driver role"
+   },
+   {
+    "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+    "name": "NVIDIA/cluster-readiness-engine",
+    "note": "readiness validation"
+   },
+   {
+    "url": "https://github.com/nebius/nebius-solutions-library",
+    "name": "nebius/nebius-solutions-library",
+    "note": "Slurm and Kubernetes recipes"
+   },
+   {
+    "url": "https://github.com/aws-samples/awsome-distributed-training",
+    "name": "aws-samples/awsome-distributed-training",
+    "note": "tests and architectures"
+   }
+  ],
+  "docs": [
+   {
+    "url": "https://developer.nvidia.com/blog/validate-gpu-cluster-readiness-before-ai-workloads-land",
+    "name": "NVIDIA blog: validate GPU cluster readiness"
+   },
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters"
+   },
+   {
+    "url": "https://docs.nvidia.com/cluster-readiness-engine/getting-started/your-first-certification",
+    "name": "NVCRE: your first certification"
+   }
+  ],
+  "question": "Walk me through your validation kit: what it checks, what it caught, what it cost."
+ },
+ {
+  "id": "L2",
+  "domain": "L",
+  "level": "Senior",
+  "core": true,
+  "tier": 0,
+  "tier_label": "Tier 0 - laptop or VM",
+  "hours": 16,
+  "title": "Public proof: posts, PRs and talk track",
+  "jd": "JD: contributions and written communication; both NVIDIA SA postings stress clear writing.",
+  "steps": [
+   "Publish one short post per domain from your results (triage, XID decoder, NUMA penalty, nccl-tests scaling, acceptance runbook).",
+   "Open at least two pull requests: documentation or example fixes in repos you used, for example in the AWS distributed-training samples, nccl-tests or the readiness-engine docs. Read each repo's contribution guide first.",
+   "Prepare a ten-minute talk: bring-up from rack to training job, using your capstone as the story.",
+   "Update your headline and About section to 'Cloud and AI infrastructure' and link the kit."
+  ],
+  "deliverable_html": "Posts, merged or open PR links, slides, updated profile.",
+  "gem_html": "",
+  "repos": [
+   {
+    "url": "https://github.com/aws-samples/awsome-distributed-training",
+    "name": "aws-samples/awsome-distributed-training",
+    "note": "accepts community contributions"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests",
+    "name": "NVIDIA/nccl-tests",
+    "note": "read CONTRIBUTING first"
+   },
+   {
+    "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+    "name": "NVIDIA/cluster-readiness-engine",
+    "note": "new project; docs and examples matter"
+   }
+  ],
+  "docs": [],
+  "question": "Show me something you built that proves you can bring up a GPU cluster."
+ }
+]

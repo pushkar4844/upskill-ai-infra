@@ -1,0 +1,461 @@
+{
+ "gems": {
+  "lead": "Repositories that rarely appear in AI-infrastructure roundups and map straight onto the posting.",
+  "items": [
+   {
+    "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+    "name": "NVIDIA/cluster-readiness-engine",
+    "why": "NVIDIA's open-source Kubernetes controller for workload-driven cluster validation, with thresholds you define and adaptive fault isolation.",
+    "tasks": "B5, F4"
+   },
+   {
+    "url": "https://github.com/NVIDIA/aicr",
+    "name": "NVIDIA/aicr",
+    "why": "AI Cluster Runtime: checks that drivers, operators, kernels and settings match what a cluster should have.",
+    "tasks": "B5"
+   },
+   {
+    "url": "https://github.com/NVIDIA/NVSentinel",
+    "name": "NVIDIA/NVSentinel",
+    "why": "Detects GPU faults from DCGM, syslog and cloud events, then cordons, drains and remediates with a circuit breaker.",
+    "tasks": "B4, H6"
+   },
+   {
+    "url": "https://github.com/NVIDIA/topograph",
+    "name": "NVIDIA/topograph",
+    "why": "Discovers network topology and feeds it to Kubernetes and Slurm so jobs land close together.",
+    "tasks": "E4, G4"
+   },
+   {
+    "url": "https://github.com/NVIDIA/nvidia-resiliency-ext",
+    "name": "NVIDIA/nvidia-resiliency-ext",
+    "why": "Fault tolerance, straggler detection, async and local checkpointing for large training jobs.",
+    "tasks": "F3, K3"
+   },
+   {
+    "url": "https://github.com/mej/nhc",
+    "name": "mej/nhc",
+    "why": "Node Health Check: the long-standing prolog and epilog health framework used on HPC sites.",
+    "tasks": "G2, F4"
+   },
+   {
+    "url": "https://github.com/huggingface/gpu-fryer",
+    "name": "huggingface/gpu-fryer",
+    "why": "GPU stress test from a lab that trains large models.",
+    "tasks": "B3"
+   },
+   {
+    "url": "https://github.com/Azure/azurehpc-health-checks",
+    "name": "Azure/azurehpc-health-checks",
+    "why": "Hyperscaler-grade node health checks for HPC and GPU VMs. A template for your own.",
+    "tasks": "I1"
+   },
+   {
+    "url": "https://github.com/opencomputeproject/ocp-diag-core",
+    "name": "opencomputeproject/ocp-diag-core",
+    "why": "Open Compute Project schema and libraries for standard hardware diagnostic output.",
+    "tasks": "D3, B5"
+   },
+   {
+    "url": "https://github.com/openbmc/openbmc",
+    "name": "openbmc/openbmc",
+    "why": "Boot a real BMC firmware stack in QEMU. Almost no cloud engineer has.",
+    "tasks": "D2"
+   },
+   {
+    "url": "https://github.com/linux-rdma/rdma-core",
+    "name": "linux-rdma/rdma-core",
+    "why": "Contains the Soft-RoCE driver, which gives you a free RDMA lab on any Linux VM.",
+    "tasks": "E1"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/kwok",
+    "name": "kubernetes-sigs/kwok",
+    "why": "Simulate thousands of fake GPU nodes on a laptop to practice scheduling.",
+    "tasks": "H4"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/dra-example-driver",
+    "name": "kubernetes-sigs/dra-example-driver",
+    "why": "The clearest way to learn Dynamic Resource Allocation without a GPU.",
+    "tasks": "H5"
+   },
+   {
+    "url": "https://github.com/kubernetes-sigs/kube-scheduler-simulator",
+    "name": "kubernetes-sigs/kube-scheduler-simulator",
+    "why": "See why the scheduler made a placement decision.",
+    "tasks": "H4"
+   },
+   {
+    "url": "https://github.com/Netflix/flamescope",
+    "name": "Netflix/flamescope",
+    "why": "Sub-second stall detection that flame graphs hide.",
+    "tasks": "A2"
+   },
+   {
+    "url": "https://github.com/warewulf/warewulf",
+    "name": "warewulf/warewulf",
+    "why": "Image-based provisioning you can run in KVM to learn how servers become nodes.",
+    "tasks": "G5"
+   },
+   {
+    "url": "https://github.com/DMTF/Redfish-Mockup-Server",
+    "name": "DMTF/Redfish-Mockup-Server",
+    "why": "Practice Redfish without owning a server.",
+    "tasks": "D1, C4"
+   },
+   {
+    "url": "https://github.com/coreweave/tensorizer",
+    "name": "coreweave/tensorizer",
+    "why": "Fast model loading, a direct answer to slow scale-out.",
+    "tasks": "I3"
+   },
+   {
+    "url": "https://github.com/LambdaLabsML/distributed-training-guide",
+    "name": "LambdaLabsML/distributed-training-guide",
+    "why": "Step-by-step distributed training from single GPU to multi-node.",
+    "tasks": "K2"
+   },
+   {
+    "url": "https://github.com/mlcommons/storage",
+    "name": "mlcommons/storage",
+    "why": "The MLPerf Storage benchmark.",
+    "tasks": "I3"
+   }
+  ]
+ },
+ "reading": {
+  "lead": "Long reads worth finishing. Each one is cited in a task.",
+  "items": [
+   {
+    "url": "https://www.together.ai/blog/a-practitioners-guide-to-testing-and-running-large-gpu-clusters-for-training-generative-ai-models",
+    "name": "Together AI: practitioner's guide to testing large GPU clusters",
+    "why": "The best public acceptance-test sequence. Basis for B5."
+   },
+   {
+    "url": "https://developer.nvidia.com/blog/validate-gpu-cluster-readiness-before-ai-workloads-land",
+    "name": "NVIDIA: validate GPU cluster readiness before workloads land",
+    "why": "Explains NVCRE scopes and CEL thresholds."
+   },
+   {
+    "url": "https://modal.com/blog/gpu-health",
+    "name": "Modal: keeping 20,000 GPUs healthy",
+    "why": "Passive versus active checks, real failure modes, host-level remediation."
+   },
+   {
+    "url": "https://www.crusoe.ai/resources/blog/how-crusoe-burn-in-tests-every-node-before-it-reaches-you",
+    "name": "Crusoe: how every node is burn-in tested",
+    "why": "A provider's burn-in process."
+   },
+   {
+    "url": "https://docs.nvidia.com/deploy/pdf/XID_Errors.pdf",
+    "name": "NVIDIA XID error catalog",
+    "why": "Memorize the common codes."
+   },
+   {
+    "url": "https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html",
+    "name": "DCGM diagnostics",
+    "why": "What each level runs and how long it takes."
+   },
+   {
+    "url": "https://arxiv.org/pdf/2407.21783",
+    "name": "The Llama 3 Herd of Models",
+    "why": "Infrastructure and interruption data from a 16K-GPU run."
+   },
+   {
+    "url": "https://arxiv.org/html/2410.21680v1",
+    "name": "Revisiting Reliability in Large-Scale ML Research Clusters",
+    "why": "Failure rates and effects measured on two large clusters."
+   },
+   {
+    "url": "https://newsletter.semianalysis.com/p/clustermax-20-the-industry-standard",
+    "name": "SemiAnalysis ClusterMAX 2.0",
+    "why": "How outsiders rate GPU clouds, including monitoring and health checks."
+   },
+   {
+    "url": "https://docs.nvidia.com/dgx-superpod/",
+    "name": "DGX SuperPOD documentation",
+    "why": "Reference architectures, deployment and cabling guides."
+   },
+   {
+    "url": "https://docs.nvidia.com/cuda/gpudirect-rdma/",
+    "name": "NVIDIA GPUDirect RDMA",
+    "why": "Requirements: same root complex, IOMMU settings, peer memory."
+   },
+   {
+    "url": "https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md",
+    "name": "nccl-tests PERFORMANCE.md",
+    "why": "algbw and busbw formulas."
+   },
+   {
+    "url": "https://huggingface.co/spaces/nanotron/ultrascale-playbook",
+    "name": "The Ultra-Scale Playbook",
+    "why": "How training scales across GPUs."
+   },
+   {
+    "url": "https://jax-ml.github.io/scaling-book/",
+    "name": "How to Scale Your Model",
+    "why": "Roofline and transformer math."
+   }
+  ],
+  "extra": [
+   {
+    "title": "Free courses",
+    "html": "<p><a href=\"https://www.nvidia.com/en-eu/training/online\" rel=\"noopener\" target=\"_blank\">NVIDIA self-paced training</a> has free courses; filter for AI infrastructure, generative AI and networking. <a href=\"https://www.cloudskillsboost.google/\" rel=\"noopener\" target=\"_blank\">Google Cloud Skills</a> was mentioned for short temporary GPU labs; check the current catalog and pricing.</p>"
+   }
+  ]
+ },
+ "interview": {
+  "lead": "Answer spines you can verify against the cited pages, then the question from each task.",
+  "spines": [
+   {
+    "title": "Xid 79",
+    "answer": "The GPU has fallen off the bus: it is no longer reachable over PCIe. NVIDIA's catalog says restart the bare-metal host and contact support, since it often points to a PCIe link or hardware failure."
+   },
+   {
+    "title": "Xid 48, 63, 64",
+    "answer": "48 is an uncorrectable double-bit ECC error. 63 records a row-remapping event and is informational. 64 is a row-remap failure and needs a GPU reset or escalation."
+   },
+   {
+    "title": "algbw versus busbw",
+    "answer": "algbw is size divided by time. busbw applies a correction so the number is comparable to link bandwidth regardless of rank count: all-reduce multiplies by 2(n-1)/n."
+   },
+   {
+    "title": "DCGM r3 versus r2",
+    "answer": "r3 adds the diagnostic, targeted stress, targeted power, NVBandwidth and NCCL plugins on top of r2's software, PCIe and NVLink, memory and memory bandwidth tests."
+   },
+   {
+    "title": "GPUDirect RDMA requirements",
+    "answer": "GPU and NIC under the same upstream PCIe root complex for good performance; IOMMU disabled or pass-through; peer memory module loaded."
+   },
+   {
+    "title": "Multi-node all-reduce bar",
+    "answer": "One public guide uses roughly 92% of theoretical fabric bandwidth as the pass line, for example 370 GB/s on a 400 GB/s fabric. State your own threshold and why."
+   },
+   {
+    "title": "Remediation loop",
+    "answer": "Use a circuit breaker so a cluster-wide event cannot cordon every node. Reset one GPU when the fault is recoverable; reboot the node only when needed."
+   },
+   {
+    "title": "Pass/fail semantics",
+    "answer": "Define thresholds in a file. A job that finishes but misses its target is still a failure."
+   }
+  ],
+  "questions": [
+   {
+    "task": "A1",
+    "question": "A node is slow. What do you run first, second and third, and what does each rule out?"
+   },
+   {
+    "task": "A2",
+    "question": "GPU utilization is 40%. How do you decide whether the problem is CPU-side or GPU-side?"
+   },
+   {
+    "task": "A3",
+    "question": "Walk me through what happens between kubectl apply and a GPU appearing inside the pod."
+   },
+   {
+    "task": "A4",
+    "question": "You roll a driver upgrade across 500 nodes. What are your gates and your rollback trigger?"
+   },
+   {
+    "task": "B1",
+    "question": "Xid 79 appears in dmesg. What does it mean and what do you do? How does it differ from Xid 48 followed by 63 or 64?"
+   },
+   {
+    "task": "B2",
+    "question": "What does dcgmi diag -r 3 run that -r 2 does not, and when would you pay for -r 4 ?"
+   },
+   {
+    "task": "B3",
+    "question": "How long do you burn in a new node and what usually fails first?"
+   },
+   {
+    "task": "B4",
+    "question": "A node reports a recoverable GPU fault. Reset the GPU or reboot the node, and how do you decide?"
+   },
+   {
+    "task": "B5",
+    "question": "How do you validate a new 256-GPU cluster before handing it to the customer?"
+   },
+   {
+    "task": "C1",
+    "question": "Draw an 8-GPU HGX node: GPUs, NVSwitches, NICs, CPUs. Where does GPUDirect RDMA traffic flow?"
+   },
+   {
+    "task": "C2",
+    "question": "Why does CPU socket placement matter for a GPU and a NIC?"
+   },
+   {
+    "task": "C3",
+    "question": "A GPU shows half the expected PCIe bandwidth. What do you check?"
+   },
+   {
+    "task": "C4",
+    "question": "How would you detect and fix BIOS drift across 2,000 servers?"
+   },
+   {
+    "task": "D1",
+    "question": "IPMI versus Redfish: what changed and why do hyperscalers prefer Redfish?"
+   },
+   {
+    "task": "D2",
+    "question": "What does a BMC do when the host OS is hung?"
+   },
+   {
+    "task": "D3",
+    "question": "Rack 14 has hot GPUs. How do you prove it is cooling and not workload?"
+   },
+   {
+    "task": "E1",
+    "question": "Explain RDMA to a cloud engineer in 60 seconds. Why does it matter for all-reduce?"
+   },
+   {
+    "task": "E2",
+    "question": "NCCL falls back to sockets on an EFA cluster. What are your first three checks?"
+   },
+   {
+    "task": "E3",
+    "question": "A link has a rising symbol error counter. What do you do before you replace the cable?"
+   },
+   {
+    "task": "E4",
+    "question": "Why does a 1,024-GPU job want a rail-optimized network?"
+   },
+   {
+    "task": "E5",
+    "question": "What must be true for GPUDirect RDMA to be fast on a given server?"
+   },
+   {
+    "task": "F1",
+    "question": "What is the difference between algbw and busbw, and why does busbw exist?"
+   },
+   {
+    "task": "F2",
+    "question": "busbw drops from 2 nodes to 4. Where do you look?"
+   },
+   {
+    "task": "F3",
+    "question": "A 64-GPU job hangs after 4 hours. How do you find the cause?"
+   },
+   {
+    "task": "F4",
+    "question": "One node out of 200 slows every all-reduce. How do you find it without testing all 200 pairs?"
+   },
+   {
+    "task": "G1",
+    "question": "How does Slurm keep one job's GPUs invisible to another?"
+   },
+   {
+    "task": "G2",
+    "question": "Which health checks would you run at job start versus continuously?"
+   },
+   {
+    "task": "G3",
+    "question": "Compare how three clouds expose the GPU fabric to a customer."
+   },
+   {
+    "task": "G4",
+    "question": "A customer asks Slurm or Kubernetes for training. How do you answer?"
+   },
+   {
+    "task": "G5",
+    "question": "Walk me through how a bare-metal server becomes a Slurm or Kubernetes node."
+   },
+   {
+    "task": "H1",
+    "question": "What does the GPU Operator install and in what order?"
+   },
+   {
+    "task": "H2",
+    "question": "A tenant needs hard isolation on one GPU. Time-slicing, MPS or MIG, and why?"
+   },
+   {
+    "task": "H3",
+    "question": "How does a pod get access to an RDMA NIC?"
+   },
+   {
+    "task": "H4",
+    "question": "Two teams share 256 GPUs. How do you enforce quota and keep gangs from deadlocking?"
+   },
+   {
+    "task": "H5",
+    "question": "Why is DRA better than the device plugin model for NVLink-connected GPUs?"
+   },
+   {
+    "task": "H6",
+    "question": "How do you avoid a remediation loop that drains your whole cluster?"
+   },
+   {
+    "task": "H7",
+    "question": "Describe a reconcile loop and how you make it idempotent."
+   },
+   {
+    "task": "H8",
+    "question": "How do you stop a tenant from running a privileged container on your GPU nodes?"
+   },
+   {
+    "task": "I1",
+    "question": "Why do two clouds with the same GPU deliver different all-reduce numbers?"
+   },
+   {
+    "task": "I2",
+    "question": "You have 4 weeks to bring up 1,024 GPUs for a customer. What is your plan?"
+   },
+   {
+    "task": "I3",
+    "question": "A 70B model takes 12 minutes to load on each scale-out. How do you cut it?"
+   },
+   {
+    "task": "J1",
+    "question": "Which three GPU metrics do you alert on, and why not utilization alone?"
+   },
+   {
+    "task": "J2",
+    "question": "How do you tell a bad GPU batch from a bad rack?"
+   },
+   {
+    "task": "J3",
+    "question": "Tell me about a time you aligned several teams without authority. (Use a ProServe engagement.)"
+   },
+   {
+    "task": "K1",
+    "question": "Can a 70B model train on one 8 x 80 GB node? Show your math."
+   },
+   {
+    "task": "K2",
+    "question": "MFU is 25%. Name three places you would look."
+   },
+   {
+    "task": "K3",
+    "question": "How often should a 4,096-GPU job checkpoint?"
+   },
+   {
+    "task": "K4",
+    "question": "What does a customer need in their network before they try disaggregated serving?"
+   },
+   {
+    "task": "L1",
+    "question": "Walk me through your validation kit: what it checks, what it caught, what it cost."
+   },
+   {
+    "task": "L2",
+    "question": "Show me something you built that proves you can bring up a GPU cluster."
+   }
+  ]
+ },
+ "certifications": [
+  {
+   "title": "NCP-AII (NVIDIA-Certified Professional: AI Infrastructure)",
+   "html": "<p>Domains and weights on NVIDIA's page: Cluster Test and Verification 33%, System and Server Bring-up 31%, Control Plane Installation and Configuration 19%, Troubleshoot and Optimize 12%, Physical Layer Management 5%.</p> <p>About 70 to 75 questions, 120 minutes, $400. The page lists 2 to 3 years of data-center operations experience with NVIDIA hardware as a prerequisite, so treat the lab work here as your substitute and read the page before you book.</p> <p><a href=\"https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-professional\" rel=\"noopener\" target=\"_blank\">Exam page</a></p>"
+  },
+  {
+   "title": "NCA-AIIO (Associate)",
+   "html": "<p>Entry-level companion exam. Useful as a warm-up and as a visible signal.</p> <p><a href=\"https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-operations-associate\" rel=\"noopener\" target=\"_blank\">Exam page</a></p>"
+  },
+  {
+   "title": "CKS",
+   "html": "<p>The call stressed Kubernetes security. Tasks H7 and H8 prepare the ground if you choose to sit it.</p>"
+  }
+ ]
+}

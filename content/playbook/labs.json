@@ -1,0 +1,2317 @@
+[
+ {
+  "id": "A1",
+  "level": "Beginner",
+  "title": "The 60-second node triage drill",
+  "env": "L",
+  "hours": 5,
+  "cost": "$0",
+  "goal": "Learn the first commands you run on any slow node, and what each one rules out. You will create each bottleneck yourself, so you know what it looks like.",
+  "before": "S1, S2",
+  "steps": [
+   {
+    "text": "Install the tools (already done in S2 - run again to be sure).",
+    "code": "sudo apt install -y sysstat stress-ng fio iperf3 ethtool"
+   },
+   {
+    "text": "Run the 'first minute' set on an idle system and save it as your baseline. Read each output: what is the column that matters?",
+    "code": "uptime                 # load average vs CPU count (nproc)\nsudo dmesg -T | tail -20   # kernel errors, OOM kills, NIC resets\nvmstat 1 5             # r = run queue, si/so = swapping, wa = I/O wait\nmpstat -P ALL 1 3      # per-CPU %usr %sys %iowait %idle\npidstat 1 3            # which process uses CPU\niostat -xz 1 3         # %util, r_await/w_await per disk\nfree -m                # look at 'available', not 'free'\nsar -n DEV 1 3         # rxkB/s txkB/s per NIC\nethtool -S eth0 | grep -iE 'err|drop'   # NIC error counters (name may differ: ip -br link)"
+   },
+   {
+    "text": "Bottleneck 1 - CPU. In terminal 1 run the load, in terminal 2 watch.",
+    "code": "stress-ng --cpu 0 --timeout 60s          # terminal 1\nvmstat 1    # terminal 2: 'r' climbs above nproc, 'id' near 0\nmpstat -P ALL 1"
+   },
+   {
+    "text": "Bottleneck 2 - Memory.",
+    "code": "stress-ng --vm 2 --vm-bytes 85% --timeout 60s\nvmstat 1    # watch free drop, si/so > 0 if swapping\nfree -m"
+   },
+   {
+    "text": "Bottleneck 3 - Disk.",
+    "code": "fio --name=randw --rw=randwrite --bs=4k --size=1G --numjobs=4 --iodepth=32 \\\n    --ioengine=libaio --direct=1 --runtime=60 --time_based --filename=/tmp/fio.test\niostat -xz 1   # %util near 100, w_await grows\nrm -f /tmp/fio.test"
+   },
+   {
+    "text": "Bottleneck 4 - Network (loopback in WSL; between the two VMs of S7 for a real NIC).",
+    "code": "iperf3 -s &          # server\niperf3 -c 127.0.0.1 -t 30\nsar -n DEV 1"
+   },
+   {
+    "text": "Write triage.sh - one command, one page, one verdict per resource. Start from this skeleton and improve it.",
+    "code": "cat > ~/gpu-lab/linux/triage.sh <<'EOF'\n#!/usr/bin/env bash\n# 60-second triage: prints a verdict per resource. Usage: ./triage.sh\nset -u\nN=$(nproc)\necho \"== $(hostname)  $(date -Is)  cpus=$N\"\nLOAD=$(awk '{print $1}' /proc/loadavg)\nRQ=$(vmstat 1 3 | tail -1 | awk '{print $1}')\nIDLE=$(vmstat 1 3 | tail -1 | awk '{print $15}')\nSWAP=$(vmstat 1 3 | tail -1 | awk '{print $7+$8}')\nAVAIL=$(free -m | awk '/Mem:/ {printf \"%d\", $7/$2*100}')\necho \"CPU   : load=$LOAD runq=$RQ idle=${IDLE}% -> $( [ \"$RQ\" -gt \"$N\" ] && echo SATURATED || echo ok)\"\necho \"MEM   : available=${AVAIL}% swap_io=$SWAP -> $( [ \"$AVAIL\" -lt 10 ] || [ \"$SWAP\" -gt 0 ] && echo PRESSURE || echo ok)\"\nDISK=$(iostat -dxz 1 2 | awk '/^[a-z]/ && $1!=\"Device\" {u=$NF} END {print u+0}')\necho \"DISK  : max_util=${DISK}% -> $( awk -v d=$DISK 'BEGIN{print (d>80)?\"SATURATED\":\"ok\"}')\"\nERR=$(sudo dmesg -T 2>/dev/null | grep -ciE 'error|fail|oom|xid' || true)\necho \"KERNEL: dmesg error-ish lines=$ERR -> $( [ \"$ERR\" -gt 0 ] && echo CHECK || echo ok)\"\nif command -v nvidia-smi >/dev/null; then\n  nvidia-smi --query-gpu=index,utilization.gpu,temperature.gpu,power.draw,clocks_event_reasons.active --format=csv,noheader \\\n   | sed 's/^/GPU   : /'\nfi\nEOF\nchmod +x ~/gpu-lab/linux/triage.sh && ~/gpu-lab/linux/triage.sh"
+   }
+  ],
+  "expect": "Idle: all 'ok'. Under stress-ng --cpu: CPU SATURATED. Under --vm: MEM PRESSURE. Under fio: DISK SATURATED. Each tool exposes its bottleneck within a few seconds.",
+  "verify": [
+   "triage.sh finishes in under 15 seconds",
+   "You produced each of the 4 verdicts on purpose",
+   "You can say what vmstat r, si/so and iostat %util mean without notes"
+  ],
+  "broke": [
+   {
+    "symptom": "iostat/sar: command not found",
+    "fix": "sudo apt install sysstat"
+   },
+   {
+    "symptom": "ethtool -S says 'no stats available' in WSL",
+    "fix": "Normal for the WSL virtual NIC - repeat on the VMs from S7"
+   },
+   {
+    "symptom": "dmesg: permission denied",
+    "fix": "use sudo dmesg"
+   }
+  ],
+  "commit": "linux/triage.sh, notes/A1.md with a table: symptom | command | column to read | meaning",
+  "cleanup": "Nothing running. Kill iperf3 server: pkill iperf3",
+  "interview": "A node is slow. I run uptime, dmesg, vmstat, mpstat, pidstat, iostat, free, sar -n DEV in that order - USE method: utilization, saturation, errors per resource - and on a GPU box add nvidia-smi and clock-event reasons. Each one rules out a layer in seconds."
+ },
+ {
+  "id": "B1",
+  "level": "Beginner",
+  "title": "Build an XID decoder",
+  "env": "L",
+  "hours": 5,
+  "cost": "$0",
+  "goal": "XID errors are how the NVIDIA driver reports GPU problems in the kernel log. You will build a tool that reads them and tells an operator what to do. No GPU needed.",
+  "before": "S2",
+  "steps": [
+   {
+    "text": "Open the NVIDIA XID catalog (link in gpu.html B1). Fill this starter table. Meanings below are the common ones - confirm each 'action' against the catalog before you trust it.",
+    "code": "mkdir -p ~/gpu-lab/gpu-health && cd ~/gpu-lab/gpu-health\ncat > xid_table.json <<'EOF'\n{\n \"13\": {\"name\": \"Graphics engine exception\", \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"Usually app bug; check the job. Repeats on one GPU -> run DCGM diag\"},\n \"31\": {\"name\": \"GPU memory page fault\",     \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"Illegal memory access by app; check app/driver\"},\n \"43\": {\"name\": \"GPU stopped processing\",    \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"App-level; restart job\"},\n \"45\": {\"name\": \"Preemptive cleanup\",        \"cat\": \"application\", \"sev\": \"info\", \"action\": \"Follows a killed process; read the earlier XID\"},\n \"48\": {\"name\": \"Double-bit ECC error\",      \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Uncorrectable; drain, reset GPU, check retired/remapped rows\"},\n \"62\": {\"name\": \"Internal micro-controller halt\", \"cat\": \"firmware\", \"sev\": \"high\", \"action\": \"Reset GPU; repeated -> RMA\"},\n \"63\": {\"name\": \"Row remapping event\",       \"cat\": \"memory\",      \"sev\": \"info\", \"action\": \"Recorded; reset GPU at next drain to apply\"},\n \"64\": {\"name\": \"Row remapping failure\",     \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Drain, reset; persistent -> RMA\"},\n \"74\": {\"name\": \"NVLink error\",              \"cat\": \"interconnect\",\"sev\": \"high\", \"action\": \"Check NVLink counters/fabric manager; reset; persistent -> hardware\"},\n \"79\": {\"name\": \"GPU has fallen off the bus\",\"cat\": \"bus\",         \"sev\": \"critical\", \"action\": \"Drain node, reboot host, check PCIe/power; escalate to vendor\"},\n \"92\": {\"name\": \"High single-bit ECC rate\",  \"cat\": \"memory\",      \"sev\": \"medium\",\"action\": \"Watch trend; schedule diag\"},\n \"94\": {\"name\": \"Contained ECC error\",       \"cat\": \"memory\",      \"sev\": \"medium\",\"action\": \"App killed, GPU OK; reset at drain\"},\n \"95\": {\"name\": \"Uncontained ECC error\",     \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Drain and reset GPU\"},\n \"119\":{\"name\": \"GSP RPC timeout\",           \"cat\": \"firmware\",    \"sev\": \"high\", \"action\": \"Reset GPU / reboot; check driver version\"},\n \"120\":{\"name\": \"GSP error\",                 \"cat\": \"firmware\",    \"sev\": \"high\", \"action\": \"Reset GPU / reboot; check driver version\"}\n}\nEOF"
+   },
+   {
+    "text": "Write xidwatch.py. It reads kernel log lines from stdin (or a file), finds 'NVRM: Xid', and prints severity + action.",
+    "code": "cat > xidwatch.py <<'EOF'\n#!/usr/bin/env python3\n\"\"\"Decode NVIDIA XID lines. Usage: journalctl -k -f | ./xidwatch.py   or   ./xidwatch.py < sample.log\"\"\"\nimport json, re, sys, pathlib\nTABLE = json.loads((pathlib.Path(__file__).parent / \"xid_table.json\").read_text())\nPAT = re.compile(r\"NVRM: Xid \\(PCI:(?P<bdf>[0-9a-fA-F:.]+)\\): (?P<xid>\\d+),?(?P<rest>.*)\")\n\ndef decode(line):\n    m = PAT.search(line)\n    if not m:\n        return None\n    xid = m.group(\"xid\")\n    info = TABLE.get(xid, {\"name\": \"unknown XID\", \"cat\": \"unknown\", \"sev\": \"check\", \"action\": \"Look up in NVIDIA XID catalog\"})\n    return {\"bdf\": m.group(\"bdf\"), \"xid\": int(xid), **info, \"detail\": m.group(\"rest\").strip()}\n\nif __name__ == \"__main__\":\n    for line in sys.stdin:\n        d = decode(line)\n        if d:\n            print(f\"[{d['sev'].upper():8}] GPU {d['bdf']} XID {d['xid']} {d['name']} ({d['cat']}) -> {d['action']}\", flush=True)\nEOF\nchmod +x xidwatch.py"
+   },
+   {
+    "text": "Make sample log lines in the same shape the driver writes and test.",
+    "code": "cat > sample.log <<'EOF'\nOct 10 10:01:02 node7 kernel: NVRM: Xid (PCI:0000:3b:00): 79, pid=0, GPU has fallen off the bus.\nOct 10 10:02:11 node7 kernel: NVRM: Xid (PCI:0000:5e:00): 48, pid=1234, An uncorrectable double bit error\nOct 10 10:02:12 node7 kernel: NVRM: Xid (PCI:0000:5e:00): 63, pid=1234, Row remapping event\nOct 10 10:03:00 node7 kernel: eth0: link up\nEOF\n./xidwatch.py < sample.log"
+   },
+   {
+    "text": "Add unit tests with pytest.",
+    "code": "python3 -m venv .venv && . .venv/bin/activate && pip install pytest\ncat > test_xidwatch.py <<'EOF'\nfrom xidwatch import decode\ndef test_79():\n    d = decode(\"kernel: NVRM: Xid (PCI:0000:3b:00): 79, pid=0, GPU has fallen off the bus.\")\n    assert d[\"xid\"] == 79 and d[\"sev\"] == \"critical\" and d[\"bdf\"] == \"0000:3b:00\"\ndef test_non_xid():\n    assert decode(\"eth0: link up\") is None\ndef test_unknown():\n    assert decode(\"NVRM: Xid (PCI:0000:01:00): 999, x\")[\"cat\"] == \"unknown\"\nEOF\npytest -q"
+   },
+   {
+    "text": "Later, on a GPU instance (S8), run it live.",
+    "code": "journalctl -k -f | ~/gpu-lab/gpu-health/xidwatch.py"
+   }
+  ],
+  "expect": "./xidwatch.py < sample.log prints 3 lines: CRITICAL for 79, HIGH for 48, INFO for 63, and ignores the eth0 line. pytest: 3 passed.",
+  "verify": [
+   "3 tests pass",
+   "You can explain 79 vs 48 vs 63/64 from memory",
+   "Unknown XIDs do not crash the tool"
+  ],
+  "broke": [
+   {
+    "symptom": "Regex finds nothing on real logs",
+    "fix": "Print the raw line; some drivers write 'NVRM: Xid (PCI:0000:3b:00.0)' - the pattern already allows '.' but check spacing"
+   },
+   {
+    "symptom": "ModuleNotFoundError: xidwatch",
+    "fix": "Run pytest from the gpu-health folder"
+   }
+  ],
+  "commit": "gpu-health/xidwatch.py, xid_table.json, sample.log, test_xidwatch.py, notes/B1.md",
+  "cleanup": "Nothing.",
+  "interview": "XID 79 means the GPU dropped off PCIe - drain and reboot, check power/PCIe, escalate. 48 is an uncorrectable ECC error; 63 is a row-remap event that applies at next reset; 64 means the remap failed. I built a decoder that turns those log lines into actions."
+ },
+ {
+  "id": "K1",
+  "level": "Beginner",
+  "title": "Transformer and cluster arithmetic",
+  "env": "L",
+  "hours": 8,
+  "cost": "$0",
+  "goal": "Infrastructure people must do the math customers ask about: does the model fit, how big is the KV cache, how many GPU-days. You'll build a notebook you can reuse in interviews.",
+  "before": "S2",
+  "steps": [
+   {
+    "text": "Create a notebook environment.",
+    "code": "cd ~/gpu-lab/llm && python3 -m venv .venv && . .venv/bin/activate && pip install jupyterlab\njupyter lab --no-browser   # open the printed http://localhost:8888 URL in Windows browser"
+   },
+   {
+    "text": "Cell 1 - training memory (mixed precision + Adam). Rule of thumb: ~16 bytes per parameter (BF16 weights 2 + BF16 grads 2 + FP32 master 4 + Adam m 4 + v 4), activations extra.",
+    "code": "P = 70e9\nbytes_per_param = 2 + 2 + 4 + 4 + 4\ntotal_gb = P * bytes_per_param / 1e9\nprint(f'{total_gb:,.0f} GB total')                 # ~1,120 GB\nfor gpus in (8, 16, 32):\n    print(gpus, 'GPUs fully sharded ->', round(total_gb/gpus), 'GB/GPU (80 GB cards)')"
+   },
+   {
+    "text": "Cell 2 - KV cache per token = 2 (K and V) x layers x kv_heads x head_dim x bytes. Example Llama-3-8B-like: 32 layers, 8 KV heads, head_dim 128, BF16.",
+    "code": "layers, kv_heads, head_dim, b = 32, 8, 128, 2\nper_token = 2 * layers * kv_heads * head_dim * b\nprint(per_token/1024, 'KiB per token')              # 128 KiB\nctx = 8192\nprint(per_token*ctx/2**30, 'GiB per 8k-token sequence') # 1 GiB\nfree_gb = 24 - 16   # e.g. A10G 24 GB minus ~16 GB weights\nprint('max concurrent 8k sequences ~', int(free_gb*2**30 // (per_token*ctx)))"
+   },
+   {
+    "text": "Cell 3 - training compute: FLOPs ~ 6 x params x tokens. Convert to GPU-days at a given MFU.",
+    "code": "N, D = 8e9, 1e12\nflops = 6 * N * D                  # 4.8e22\npeak = 989e12                      # H100 dense BF16 FLOP/s (spec sheet)\nmfu = 0.40\ngpu_days = flops / (peak*mfu) / 86400\nprint(f'{gpu_days:,.0f} GPU-days -> {gpu_days/1024:.1f} days on 1,024 GPUs')"
+   },
+   {
+    "text": "Read the two books linked in gpu.html K1 (JAX scaling book: roofline + transformer chapters; HF Ultra-Scale Playbook). Add one markdown cell per chapter: 3 bullets in your own words.",
+    "code": null
+   },
+   {
+    "text": "Optional: watch Karpathy's build-nanogpt walkthrough; run it later on a GPU instance so the words 'attention', 'layer', 'token' become concrete.",
+    "code": "git clone https://github.com/karpathy/build-nanogpt"
+   }
+  ],
+  "expect": "70B needs ~1.1 TB for training state, so it does not fit on one 8x80 GB node without offload; KV cache for an 8B-class model is ~128 KiB/token; 8B x 1T tokens ~1,400 H100-days at 40% MFU.",
+  "verify": [
+   "You can redo all three calculations on a whiteboard",
+   "You know where the 16 bytes/param comes from",
+   "You can explain why longer context reduces batch size"
+  ],
+  "broke": [
+   {
+    "symptom": "Jupyter URL not opening",
+    "fix": "Use the full URL with token from the terminal; WSL forwards localhost automatically"
+   }
+  ],
+  "commit": "llm/cluster_math.ipynb, notes/K1.md",
+  "cleanup": "Ctrl+C jupyter.",
+  "interview": "Can a 70B model train on one 8x80 GB node? Show the 16 bytes/param math: ~1.1 TB of state vs 640 GB HBM - not without offload or more nodes. For inference I size KV cache per token and back out max batch at a context length."
+ },
+ {
+  "id": "C1",
+  "level": "Beginner",
+  "title": "Draw the node from memory",
+  "env": "G4",
+  "hours": 5,
+  "cost": "~$2 (1 h of g4dn.12xlarge spot)",
+  "goal": "Know which GPU sits next to which CPU socket and NIC. Every performance discussion (NUMA, GPUDirect, NCCL) starts from this picture.",
+  "before": "S8 with instance_type = g4dn.12xlarge (or any multi-GPU node)",
+  "steps": [
+   {
+    "text": "Bring up the node and log in.",
+    "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply -var instance_type=g4dn.12xlarge\naws ssm start-session --target $(terraform output -raw id)\nsudo -iu ubuntu && sudo apt install -y hwloc numactl pciutils"
+   },
+   {
+    "text": "Collect the topology facts into one file.",
+    "code": "mkdir -p ~/topo && cd ~/topo\n{ nvidia-smi topo -m; echo; numactl -H; echo; lscpu; echo; lspci -tv; } > topo.txt 2>&1\nfor n in /sys/class/net/*/device/numa_node; do echo \"$n $(cat $n)\"; done >> topo.txt\nnvidia-smi --query-gpu=index,pci.bus_id,name --format=csv >> topo.txt\nlstopo-no-graphics --of txt > lstopo.txt\ncat topo.txt"
+   },
+   {
+    "text": "Decode the nvidia-smi topo legend: X = self, PIX = same PCIe switch, PXB = multiple PCIe switches, PHB = same host bridge, NODE = same NUMA node across host bridges, SYS = crosses sockets (slowest), NV# = NVLink with # links. Write which GPU pairs are what.",
+    "code": null
+   },
+   {
+    "text": "Copy the files back to your laptop (SSM has no scp; simplest: print and paste, or push to an S3 bucket you own).",
+    "code": "aws s3 cp ~/topo s3://<your-lab-bucket>/topo/ --recursive   # needs s3 permission on the role; or just cat and copy"
+   },
+   {
+    "text": "Draw it (draw.io or Excalidraw): sockets, NUMA nodes, PCIe switches, GPUs, NICs. Write 3 rules, e.g. 'rank on GPU0 binds to NUMA 0 and NIC X'. Compare with the DGX/HGX H100 diagram from the SuperPOD docs (gpu.html C1) - learn that picture too.",
+    "code": null
+   },
+   {
+    "text": "Destroy.",
+    "code": "exit; exit\nterraform destroy -auto-approve"
+   }
+  ],
+  "expect": "On g4dn/g5 you'll see PHB/NODE/SYS between GPUs (no NV#) - that's the point: no NVLink, all GPU-GPU traffic over PCIe. Single-socket sizes show 1 NUMA node.",
+  "verify": [
+   "Diagram in repo",
+   "You can draw an 8-GPU HGX node with 4 NVSwitches and 8 NICs from memory",
+   "You know what SYS means for performance"
+  ],
+  "broke": [
+   {
+    "symptom": "lstopo-no-graphics not found",
+    "fix": "sudo apt install hwloc"
+   },
+   {
+    "symptom": "Spot capacity error",
+    "fix": "Try another AZ: change subnet index in main.tf, or use on-demand for 1 hour"
+   }
+  ],
+  "commit": "topology/<instance-type>-topo.txt, topology/node-diagram.png, notes/C1.md",
+  "cleanup": "terraform destroy; run labdown",
+  "interview": "On an HGX H100 node 8 GPUs connect through NVSwitch, each GPU pairs with a NIC under the same PCIe switch, split across two CPU sockets. GPUDirect RDMA traffic goes GPU->PCIe switch->NIC without touching CPU memory, so placement under the same switch matters."
+ },
+ {
+  "id": "B2",
+  "level": "Beginner",
+  "title": "DCGM diagnostics, levels 1 to 4",
+  "env": "G1",
+  "hours": 6,
+  "cost": "~$1-2",
+  "goal": "DCGM is NVIDIA's data-center GPU manager. Its diag levels are how fleets prove a GPU is healthy. Learn what each level runs and how long it takes.",
+  "before": "S8, B1",
+  "steps": [
+   {
+    "text": "Start a GPU instance (g4dn.xlarge is fine).",
+    "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply\naws ssm start-session --target $(terraform output -raw id)\nsudo -iu ubuntu; nvidia-smi"
+   },
+   {
+    "text": "Install DCGM from NVIDIA's CUDA repo. DCGM 4 package name shown; if apt can't find it, run 'apt search datacenter-gpu-manager' and pick the one for your CUDA major version.",
+    "code": "dpkg -l | grep -i cuda-keyring || { wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && sudo dpkg -i cuda-keyring_1.1-1_all.deb; }\nsudo apt update\nsudo apt install -y datacenter-gpu-manager-4-cuda12   # DCGM 4 (or: datacenter-gpu-manager for DCGM 3)\nsudo systemctl enable --now nvidia-dcgm\ndcgmi discovery -l"
+   },
+   {
+    "text": "Run levels 1, 2, 3 and save JSON. Time each one.",
+    "code": "mkdir -p ~/dcgm && cd ~/dcgm\nfor r in 1 2 3; do /usr/bin/time -f \"r$r %e s\" dcgmi diag -r $r -j > r$r.json; done\njq 'keys' r1.json      # look at the structure before parsing"
+   },
+   {
+    "text": "Read which plugins each level adds (gpu.html B2 lists them). Optional: r4 takes hours - skip on a T4 unless you want the experience.",
+    "code": null
+   },
+   {
+    "text": "Write a parser. The JSON layout differs between DCGM 3 and 4, so this walks the tree and prints any test name + result it finds - adjust once you've seen your file.",
+    "code": "cat > ~/dcgm/dcgm_report.py <<'EOF'\n#!/usr/bin/env python3\nimport json, sys\ndef walk(o, path=\"\"):\n    if isinstance(o, dict):\n        name = o.get(\"name\") or o.get(\"test_name\")\n        res = o.get(\"status\") or o.get(\"result\")\n        if name and res:\n            print(f\"{name:35} {res}\")\n        for k, v in o.items():\n            walk(v, f\"{path}/{k}\")\n    elif isinstance(o, list):\n        for v in o:\n            walk(v, path)\nfor f in sys.argv[1:]:\n    print(\"==\", f); walk(json.load(open(f)))\nEOF\npython3 ~/dcgm/dcgm_report.py r1.json r2.json r3.json"
+   },
+   {
+    "text": "Also try health watches and live fields.",
+    "code": "dcgmi health -s a          # enable all watches on group 0\ndcgmi health -c\ndcgmi dmon -e 150,155,203,204 -c 5   # temp, power, gpu util, mem copy util (field IDs)"
+   },
+   {
+    "text": "Copy results to your repo (print/paste or S3), destroy.",
+    "code": "terraform destroy -auto-approve"
+   }
+  ],
+  "expect": "discovery lists 1 GPU. r1 finishes in seconds, r2 in minutes, r3 tens of minutes on a T4. All tests Pass on a healthy GPU.",
+  "verify": [
+   "Timing table r1/r2/r3 vs documented Hopper figures (gpu.html B2)",
+   "Parser prints pass/fail per test",
+   "You can say what r3 adds over r2"
+  ],
+  "broke": [
+   {
+    "symptom": "dcgmi: Unable to connect to host engine",
+    "fix": "sudo systemctl status nvidia-dcgm; start it; or run nv-hostengine manually"
+   },
+   {
+    "symptom": "Package not found",
+    "fix": "apt search datacenter-gpu-manager; make sure cuda-keyring for ubuntu2204 is installed"
+   },
+   {
+    "symptom": "Diag skips tests 'not supported'",
+    "fix": "Some plugins need specific GPUs/NVLink - note it, that's a finding"
+   }
+  ],
+  "commit": "gpu-health/dcgm_report.py, results/dcgm/<gpu>-r1..r3.json, notes/B2.md with timing table",
+  "cleanup": "terraform destroy; labdown",
+  "interview": "r1 is a seconds-long sanity check, r2 adds PCIe/NVLink and memory tests, r3 adds stress, power, bandwidth and NCCL plugins and takes ~30 min on 8 GPUs, r4 adds memtest/pulse for hours. I run r3 at acceptance and r1 at job start."
+ },
+ {
+  "id": "D1",
+  "level": "Beginner",
+  "title": "Redfish 101 on a mockup server",
+  "env": "L",
+  "hours": 5,
+  "cost": "$0",
+  "goal": "Redfish is the REST API every modern server BMC exposes (power, temps, fans, logs, firmware). You'll learn it with no hardware using DMTF's mockup server.",
+  "before": "S3",
+  "steps": [
+   {
+    "text": "Run the mockup server. Easiest path is the published container (it ships a sample server); if the image name/tag changed, follow the repo README to run redfishMockupServer.py with -D <mockup dir> instead.",
+    "code": "docker run -d --name rf -p 8000:8000 dmtf/redfish-mockup-server:latest\ncurl -s localhost:8000/redfish/v1 | jq ."
+   },
+   {
+    "text": "Walk the tree by hand. Follow every @odata.id link.",
+    "code": "curl -s localhost:8000/redfish/v1/Systems | jq .\nSYS=$(curl -s localhost:8000/redfish/v1/Systems | jq -r '.Members[0].\"@odata.id\"')\ncurl -s localhost:8000$SYS | jq '{PowerState, Status, ProcessorSummary, MemorySummary}'\ncurl -s localhost:8000/redfish/v1/Chassis | jq .\nCH=$(curl -s localhost:8000/redfish/v1/Chassis | jq -r '.Members[0].\"@odata.id\"')\ncurl -s localhost:8000$CH/Thermal | jq '.Temperatures[] | {Name, ReadingCelsius}'\ncurl -s localhost:8000$CH/Power   | jq '.PowerSupplies[] | {Name, Status}'\ncurl -s localhost:8000/redfish/v1/Managers | jq .\ncurl -s localhost:8000$SYS/Bios | jq '.Attributes'    # if present in the mockup"
+   },
+   {
+    "text": "Write redfish_health.py.",
+    "code": "mkdir -p ~/gpu-lab/bmc && cd ~/gpu-lab/bmc && python3 -m venv .venv && . .venv/bin/activate && pip install requests\ncat > redfish_health.py <<'EOF'\n#!/usr/bin/env python3\n\"\"\"Print health of every chassis/system on a Redfish endpoint. Usage: redfish_health.py http://localhost:8000 [user pass]\"\"\"\nimport sys, requests\nbase = sys.argv[1].rstrip('/'); auth = tuple(sys.argv[2:4]) or None\ns = requests.Session(); s.verify = False; s.auth = auth\nget = lambda p: s.get(base + p, timeout=10).json()\nfor m in get('/redfish/v1/Systems')['Members']:\n    sysd = get(m['@odata.id'])\n    print(f\"SYSTEM {sysd.get('Id')} power={sysd.get('PowerState')} health={sysd.get('Status',{}).get('Health')}\")\nfor m in get('/redfish/v1/Chassis')['Members']:\n    ch = get(m['@odata.id']); cid = ch['@odata.id']\n    try:\n        th = get(cid + '/Thermal')\n        for t in th.get('Temperatures', []):\n            print(f\"  TEMP {t.get('Name'):30} {t.get('ReadingCelsius')} C  {t.get('Status',{}).get('Health')}\")\n        for f in th.get('Fans', []):\n            print(f\"  FAN  {f.get('Name') or f.get('FanName'):30} {f.get('Reading')} {f.get('ReadingUnits','')}\")\n        pw = get(cid + '/Power')\n        for p in pw.get('PowerSupplies', []):\n            print(f\"  PSU  {p.get('Name'):30} {p.get('Status',{}).get('Health')}\")\n    except Exception as e:\n        print('  (no Thermal/Power on', cid, '-', e, ')')\nEOF\npython3 redfish_health.py http://localhost:8000"
+   },
+   {
+    "text": "Run DMTF's Service Validator against the mockup and read the report. Check its README/--help for the exact address flag of your version.",
+    "code": "git clone https://github.com/DMTF/Redfish-Service-Validator && cd Redfish-Service-Validator\npip install -r requirements.txt\npython3 RedfishServiceValidator.py --help | head -30\npython3 RedfishServiceValidator.py --ip http://localhost:8000   # flag name per --help"
+   },
+   {
+    "text": "Read the IPMI vs Redfish comparison in the DMTF docs (gpu.html D1) and write 5 bullets.",
+    "code": null
+   }
+  ],
+  "expect": "redfish_health.py prints the system with PowerState, temperatures with readings, fans and PSUs with Health OK. The validator writes an HTML report with pass/warn counts.",
+  "verify": [
+   "You can name the 4 top-level collections (Systems, Chassis, Managers, UpdateService) and what lives where",
+   "Script handles a missing Thermal resource without crashing"
+  ],
+  "broke": [
+   {
+    "symptom": "docker: image not found",
+    "fix": "Check the repo README for the current image name, or run the Python server from source with a mockup folder from DMTF's Redfish Mockups bundle (DSP2043)"
+   },
+   {
+    "symptom": "Newer schemas use ThermalSubsystem instead of Thermal",
+    "fix": "Add a fallback to /ThermalSubsystem/ThermalMetrics - good extension task"
+   }
+  ],
+  "commit": "bmc/redfish_health.py, results/redfish/validator-report.html, notes/D1.md",
+  "cleanup": "docker rm -f rf",
+  "interview": "IPMI is an old binary protocol with weak security and vendor quirks; Redfish is HTTPS + JSON with a schema, sessions and eventing, so hyperscalers automate fleets with it - inventory, power, thermal, logs and firmware updates from one API."
+ },
+ {
+  "id": "E1",
+  "level": "Beginner",
+  "title": "RDMA from zero on Soft-RoCE",
+  "env": "V",
+  "hours": 6,
+  "cost": "~$1",
+  "goal": "RDMA lets one machine write into another's memory without the remote CPU. It's what InfiniBand/RoCE/EFA give NCCL. Soft-RoCE emulates it in software on any NIC, so you learn the commands and concepts for free.",
+  "before": "S7",
+  "steps": [
+   {
+    "text": "Create the two VMs and open a session on each (two terminals).",
+    "code": "cd ~/gpu-lab/infra/vms && terraform init && terraform apply\nterraform output\naws ssm start-session --target <id-0>     # terminal A\naws ssm start-session --target <id-1>     # terminal B\nsudo -iu ubuntu"
+   },
+   {
+    "text": "On BOTH VMs: install RDMA user space + the kernel module package that contains rdma_rxe.",
+    "code": "sudo apt update\nsudo apt install -y rdma-core ibverbs-utils perftest iperf3 linux-modules-extra-$(uname -r)\nsudo modprobe rdma_rxe\nip -br link            # note the NIC name, e.g. ens5\nsudo rdma link add rxe0 type rxe netdev ens5\nrdma link\nibv_devices\nibv_devinfo -d rxe0    # state: PORT_ACTIVE"
+   },
+   {
+    "text": "Bandwidth test. A = server, B = client (use A's private IP from terraform output). If it can't connect, add -x 1 (RoCEv2 GID index) on both sides.",
+    "code": "# A\nib_write_bw -d rxe0\n# B\nib_write_bw -d rxe0 <A_private_ip>"
+   },
+   {
+    "text": "Latency test and size sweep.",
+    "code": "# A\nib_send_lat -d rxe0\n# B\nib_send_lat -d rxe0 <A_private_ip>\n# sweep all message sizes\n# A: ib_write_bw -d rxe0 -a     B: ib_write_bw -d rxe0 -a <A_private_ip>"
+   },
+   {
+    "text": "TCP baseline on the same pair.",
+    "code": "# A\niperf3 -s\n# B\niperf3 -c <A_private_ip> -t 20"
+   },
+   {
+    "text": "Write one page in your own words: queue pair (QP), memory region (MR), protection domain (PD), completion queue (CQ), and why RDMA saves CPU and copies.",
+    "code": null
+   },
+   {
+    "text": "Destroy.",
+    "code": "terraform destroy -auto-approve"
+   }
+  ],
+  "expect": "ibv_devinfo shows rxe0 PORT_ACTIVE. ib_write_bw prints a bandwidth table (Soft-RoCE is CPU-bound, so numbers can be lower than iperf3 - that is fine and worth explaining).",
+  "verify": [
+   "Both perftest runs completed",
+   "Notes page explains QP/MR/PD/CQ",
+   "You can say why real RoCE/IB numbers beat TCP while Soft-RoCE does not"
+  ],
+  "broke": [
+   {
+    "symptom": "modprobe: FATAL: Module rdma_rxe not found",
+    "fix": "Install linux-modules-extra-$(uname -r); if your kernel flavor lacks it, use the generic kernel or a VirtualBox Ubuntu VM"
+   },
+   {
+    "symptom": "Couldn't connect to <ip>:18515",
+    "fix": "Security group must allow all traffic between the VMs (S7 does); perftest uses TCP 18515 for setup and UDP 4791 for RoCEv2"
+   },
+   {
+    "symptom": "Failed to modify QP to RTR",
+    "fix": "Add -x 1 (GID index for RoCEv2) on both sides; check 'show_gids'"
+   }
+  ],
+  "commit": "rdma/softroce-setup.sh, results/rdma/softroce.txt, notes/E1.md (concepts page)",
+  "cleanup": "terraform destroy; labdown",
+  "interview": "RDMA moves data NIC-to-memory without the remote CPU or kernel copies, using queue pairs and registered memory regions. All-reduce sends huge buffers between GPUs every step, so the fabric must be RDMA (IB, RoCE or EFA) or the GPUs sit idle."
+ },
+ {
+  "id": "F1",
+  "level": "Beginner",
+  "title": "nccl-tests on one node and the busbw formula",
+  "env": "G4",
+  "hours": 6,
+  "cost": "~$3-5",
+  "goal": "NCCL is the library that moves data between GPUs for training. nccl-tests measures it. Learn to run it, read algbw vs busbw, and plot results.",
+  "before": "S8 (g4dn.12xlarge or g5.12xlarge), C1",
+  "steps": [
+   {
+    "text": "Start a 4-GPU node.",
+    "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply -var instance_type=g4dn.12xlarge\naws ssm start-session --target $(terraform output -raw id); sudo -iu ubuntu; nvidia-smi -L"
+   },
+   {
+    "text": "Find NCCL and build nccl-tests.",
+    "code": "find / -name 'libnccl.so*' 2>/dev/null | head     # note the folder, e.g. /usr/local/cuda/lib or /usr/lib/x86_64-linux-gnu\ngit clone https://github.com/NVIDIA/nccl-tests && cd nccl-tests\nmake -j CUDA_HOME=/usr/local/cuda NCCL_HOME=/usr        # NCCL_HOME = parent of the lib folder you found\nls build/"
+   },
+   {
+    "text": "Run all-reduce across the 4 GPUs.",
+    "code": "./build/all_reduce_perf -b 8 -e 4G -f 2 -g 4 | tee ~/ar.txt"
+   },
+   {
+    "text": "Understand the columns: algbw = size / time. busbw = algbw x 2(n-1)/n for all-reduce (n = 4 -> x1.5). busbw is comparable to link bandwidth whatever n is. Check one row by hand.",
+    "code": null
+   },
+   {
+    "text": "Run the other collectives and compare algorithms.",
+    "code": "./build/all_gather_perf -b 8 -e 4G -f 2 -g 4 | tee ~/ag.txt\n./build/reduce_scatter_perf -b 8 -e 4G -f 2 -g 4 | tee ~/rs.txt\n./build/alltoall_perf -b 8 -e 1G -f 2 -g 4 | tee ~/a2a.txt\nNCCL_ALGO=Ring ./build/all_reduce_perf -b 1M -e 1G -f 4 -g 4\nNCCL_ALGO=Tree ./build/all_reduce_perf -b 1M -e 1G -f 4 -g 4\nNCCL_DEBUG=INFO ./build/all_reduce_perf -b 1G -e 1G -g 4 2>&1 | grep -iE 'NCCL INFO (Channel|Ring|Tree|P2P|via)' | head"
+   },
+   {
+    "text": "Plot busbw vs size on your laptop (paste ar.txt into results/).",
+    "code": "cat > ~/gpu-lab/nccl/plot_nccl.py <<'EOF'\nimport sys, matplotlib.pyplot as plt\nrows=[l.split() for l in open(sys.argv[1]) if l.strip() and l.strip()[0].isdigit()]\nsize=[int(r[0]) for r in rows]; busbw=[float(r[7]) for r in rows]   # out-of-place busbw column\nplt.semilogx(size, busbw, marker='o'); plt.xlabel('bytes'); plt.ylabel('busbw GB/s'); plt.title(sys.argv[1]); plt.grid(True)\nplt.savefig(sys.argv[1]+'.png', dpi=120); print('saved')\nEOF\npip install matplotlib && python3 ~/gpu-lab/nccl/plot_nccl.py ~/gpu-lab/results/ar.txt"
+   },
+   {
+    "text": "Destroy.",
+    "code": "terraform destroy -auto-approve"
+   }
+  ],
+  "expect": "busbw rises with message size and plateaus. On g4dn/g5 (PCIe, no NVLink) the plateau is in the low tens of GB/s or less; on an NVLink/NVSwitch H100 node it would be hundreds. 'Avg bus bandwidth' line at the end.",
+  "verify": [
+   "You recomputed one busbw by hand",
+   "Plot committed",
+   "You can say when Ring vs Tree wins (Tree helps latency at scale; Ring good for large messages)"
+  ],
+  "broke": [
+   {
+    "symptom": "nccl.h not found during make",
+    "fix": "Set NCCL_HOME to where include/nccl.h lives (find / -name nccl.h)"
+   },
+   {
+    "symptom": "libnccl.so not found at run time",
+    "fix": "export LD_LIBRARY_PATH=<nccl lib dir>:$LD_LIBRARY_PATH"
+   },
+   {
+    "symptom": "Column index wrong in plot",
+    "fix": "Print one row and count columns; busbw is the 7th/8th field depending on version"
+   }
+  ],
+  "commit": "nccl/plot_nccl.py, results/nccl/<instance>-allreduce.txt + .png, notes/F1.md",
+  "cleanup": "terraform destroy; labdown",
+  "interview": "algbw is bytes over time; busbw multiplies by 2(n-1)/n for all-reduce so it reflects per-link traffic and is comparable to hardware bandwidth regardless of GPU count. I compare large-message busbw to the NVLink or NIC line rate."
+ },
+ {
+  "id": "G1",
+  "level": "Beginner",
+  "title": "Slurm in Docker with fake GPUs",
+  "env": "L",
+  "hours": 6,
+  "cost": "$0",
+  "goal": "Slurm is the HPC scheduler used for most large training clusters. Learn the daily commands and how GPUs are declared (GRES) on a laptop.",
+  "before": "S3",
+  "steps": [
+   {
+    "text": "Clone and start the containerized cluster (follow the repo README if commands differ).",
+    "code": "cd ~/gpu-lab/slurm && git clone https://github.com/giovtorres/slurm-docker-cluster && cd slurm-docker-cluster\ndocker compose build      # first build takes a while\ndocker compose up -d\ndocker compose ps"
+   },
+   {
+    "text": "Daily commands.",
+    "code": "docker exec -it slurmctld bash\nsinfo\nsrun -N2 hostname\nsbatch --wrap='sleep 60; hostname' -N1\nsqueue\nscontrol show job <id>\nscancel <id>\nsacct --format=JobID,JobName,State,Elapsed,NodeList"
+   },
+   {
+    "text": "Declare fake GPUs. Find where the repo keeps slurm.conf (README / docker-compose volumes). Add GresTypes and Gres to the node line, create gres.conf, and create fake device files on each compute container.",
+    "code": "# in slurm.conf\nGresTypes=gpu\nNodeName=c[1-2] ... Gres=gpu:2          # append Gres=gpu:2 to the existing NodeName line\n\n# gres.conf (same folder as slurm.conf)\nNodeName=c[1-2] Name=gpu File=/dev/nvidia[0-1]\n\n# on each compute container\ndocker exec c1 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\ndocker exec c2 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\ndocker compose restart\ndocker exec -it slurmctld bash -c 'scontrol show node c1 | grep -i gres'"
+   },
+   {
+    "text": "Request GPUs and see what the job gets.",
+    "code": "srun --gres=gpu:1 bash -c 'echo CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES'\nsrun --gres=gpu:2 bash -c 'echo CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES'\nsbatch --gres=gpu:3 --wrap=hostname     # should stay pending / be rejected: no node has 3"
+   },
+   {
+    "text": "Write a tiny prolog health check (concept for G2): a script that exits non-zero drains the node.",
+    "code": "cat > prolog.sh <<'EOF'\n#!/bin/bash\n# fail if expected GPU device files are missing\nfor d in /dev/nvidia0 /dev/nvidia1; do [ -e $d ] || { echo \"missing $d\"; exit 1; }; done\nexit 0\nEOF\n# add Prolog=/path/prolog.sh to slurm.conf, restart, then delete /dev/nvidia1 on c2 and submit a job - c2 should drain\n# sinfo -R shows the reason"
+   }
+  ],
+  "expect": "sinfo shows partition with 2 nodes idle. srun --gres=gpu:1 prints CUDA_VISIBLE_DEVICES=0. A 3-GPU request cannot run. After breaking c2's device file, c2 goes DRAIN.",
+  "verify": [
+   "sbatch cookbook in notes",
+   "You can explain GRES, partitions, sacct",
+   "Prolog drained a node on purpose"
+  ],
+  "broke": [
+   {
+    "symptom": "Gres errors at slurmd start",
+    "fix": "Device files must exist before slurmd starts; NodeName line and gres.conf must agree on count"
+   },
+   {
+    "symptom": "Config changes ignored",
+    "fix": "Find which file the container actually mounts (docker inspect) and restart all services"
+   }
+  ],
+  "commit": "slurm/README.md (cookbook), slurm/gres.conf, slurm/prolog.sh, notes/G1.md",
+  "cleanup": "docker compose down",
+  "interview": "Slurm declares GPUs as GRES in gres.conf; with cgroup device constraints a job sees only the GPUs it was allocated, exposed via CUDA_VISIBLE_DEVICES. Prolog/epilog health checks drain bad nodes before jobs land on them."
+ },
+ {
+  "id": "H1",
+  "level": "Beginner",
+  "title": "GPU Operator on one node",
+  "env": "G1",
+  "hours": 6,
+  "cost": "~$1-2",
+  "goal": "On Kubernetes, NVIDIA's GPU Operator installs everything a node needs for GPUs. Learn what it deploys, in what order, and how a pod gets a GPU.",
+  "before": "S8, S3",
+  "steps": [
+   {
+    "text": "Start a GPU instance and install k3s (single-node Kubernetes) + helm.",
+    "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply\naws ssm start-session --target $(terraform output -raw id); sudo -iu ubuntu\ncurl -sfL https://get.k3s.io | sh -\nsudo chmod 644 /etc/rancher/k3s/k3s.yaml && echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && source ~/.bashrc\ncurl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash\nkubectl get nodes"
+   },
+   {
+    "text": "Install the GPU Operator. The DL AMI already has the driver, so turn off the driver container. k3s uses its own containerd paths - check the GPU Operator docs ('Getting started' > K3s) for the current values.",
+    "code": "helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update\nhelm install gpu-operator nvidia/gpu-operator -n gpu-operator --create-namespace --wait \\\n  --set driver.enabled=false \\\n  --set toolkit.env[0].name=CONTAINERD_CONFIG --set toolkit.env[0].value=/var/lib/rancher/k3s/agent/etc/containerd/config.toml \\\n  --set toolkit.env[1].name=CONTAINERD_SOCKET --set toolkit.env[1].value=/run/k3s/containerd/containerd.sock\nkubectl get pods -n gpu-operator -w      # wait until all Running/Completed"
+   },
+   {
+    "text": "See what it deployed and what the node now advertises.",
+    "code": "kubectl get ds -n gpu-operator\nkubectl describe node | grep -A3 -E 'nvidia.com/gpu|Capacity'\nkubectl get node -o json | jq '.items[0].metadata.labels | with_entries(select(.key|startswith(\"nvidia.com\")))'"
+   },
+   {
+    "text": "Run a GPU pod.",
+    "code": "cat > cuda-pod.yaml <<'EOF'\napiVersion: v1\nkind: Pod\nmetadata: { name: cuda-test }\nspec:\n  restartPolicy: Never\n  runtimeClassName: nvidia        # remove this line if the pod fails with 'runtimeclass not found'\n  containers:\n  - name: cuda\n    image: nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04   # any CUDA base tag that exists on NGC\n    command: [\"nvidia-smi\"]\n    resources: { limits: { nvidia.com/gpu: 1 } }\nEOF\nkubectl apply -f cuda-pod.yaml && sleep 20 && kubectl logs cuda-test"
+   },
+   {
+    "text": "Draw the components: node-feature-discovery -> GPU feature discovery (labels) -> container toolkit -> device plugin (advertises nvidia.com/gpu) -> DCGM exporter -> validator. Note what the driver container would add on a bare node.",
+    "code": null
+   },
+   {
+    "text": "Destroy.",
+    "code": "terraform destroy -auto-approve"
+   }
+  ],
+  "expect": "All gpu-operator pods Running/Completed, node capacity nvidia.com/gpu: 1, labels like nvidia.com/gpu.product=Tesla-T4, and kubectl logs cuda-test prints the nvidia-smi table.",
+  "verify": [
+   "Helm values saved",
+   "Component diagram drawn",
+   "You can explain kubectl apply -> scheduler -> kubelet -> device plugin -> runtime hook -> /dev/nvidia* in the container"
+  ],
+  "broke": [
+   {
+    "symptom": "toolkit pod CrashLoop on k3s",
+    "fix": "Containerd path values wrong for your k3s version - check docs and the toolkit pod logs"
+   },
+   {
+    "symptom": "Pod pending: Insufficient nvidia.com/gpu",
+    "fix": "Device plugin not ready yet or node not labelled; kubectl logs the device-plugin pod"
+   },
+   {
+    "symptom": "Image tag not found",
+    "fix": "Pick any current tag from nvcr.io/nvidia/cuda on NGC"
+   }
+  ],
+  "commit": "k8s/gpu-operator-values.yaml, k8s/cuda-pod.yaml, k8s/operator-components.png, notes/H1.md",
+  "cleanup": "terraform destroy; labdown",
+  "interview": "The GPU Operator installs driver (optional), container toolkit, device plugin, GPU feature discovery, DCGM exporter and validators as DaemonSets. The device plugin advertises nvidia.com/gpu; when a pod requests it, kubelet allocates a GPU and the NVIDIA runtime injects the device nodes and driver libraries."
+ },
+ {
+  "id": "A2",
+  "level": "Intermediate",
+  "title": "Flame-graph a stalled GPU job",
+  "env": "G1",
+  "hours": 6,
+  "cost": "~$1-2",
+  "goal": "GPU at 40% usually means the GPU is waiting for the CPU. Prove it with a flame graph, fix it, prove the fix.",
+  "before": "A1, S8",
+  "steps": [
+   {
+    "text": "GPU instance + profiling tools.",
+    "code": "terraform apply   # in infra/gpu1\nsudo apt install -y linux-tools-$(uname -r) linux-tools-common\ngit clone https://github.com/brendangregg/FlameGraph ~/FlameGraph\npython3 -m venv ~/venv && . ~/venv/bin/activate && pip install torch torchvision"
+   },
+   {
+    "text": "A training loop with a deliberately slow dataloader.",
+    "code": "cat > slow.py <<'EOF'\nimport time, torch, torchvision, torchvision.transforms as T, sys\nW = int(sys.argv[1]) if len(sys.argv) > 1 else 0\nds = torchvision.datasets.FakeData(size=20000, image_size=(3,224,224), transform=T.Compose([T.RandomResizedCrop(224), T.ToTensor()]))\ndl = torch.utils.data.DataLoader(ds, batch_size=64, num_workers=W, pin_memory=W>0, prefetch_factor=4 if W else None)\nm = torchvision.models.resnet50().cuda(); opt = torch.optim.SGD(m.parameters(), 0.1)\nt = time.time()\nfor i, (x, y) in enumerate(dl):\n    x, y = x.cuda(non_blocking=True), y.cuda(non_blocking=True)\n    loss = torch.nn.functional.cross_entropy(m(x), y); opt.zero_grad(); loss.backward(); opt.step()\n    if i % 20 == 0: print(i, f'{(time.time()-t)/20:.3f}s/step', flush=True); t = time.time()\n    if i == 200: break\nEOF\npython3 slow.py 0 &          # num_workers=0\nnvidia-smi dmon -s u -c 30   # watch 'sm' column dip"
+   },
+   {
+    "text": "Capture CPU stacks while it runs.",
+    "code": "sudo perf record -F 99 -a -g -- sleep 30\nsudo perf script | ~/FlameGraph/stackcollapse-perf.pl | ~/FlameGraph/flamegraph.pl > cpu_before.svg"
+   },
+   {
+    "text": "Fix: more workers, pinned memory, prefetch. Measure again.",
+    "code": "python3 slow.py 8 & nvidia-smi dmon -s u -c 30\nsudo perf record -F 99 -a -g -- sleep 30 && sudo perf script | ~/FlameGraph/stackcollapse-perf.pl | ~/FlameGraph/flamegraph.pl > cpu_after.svg"
+   },
+   {
+    "text": "Optional: load the perf data into Netflix FlameScope to see sub-second stalls; try PyTorch profiler (kineto) for a GPU timeline.",
+    "code": null
+   }
+  ],
+  "expect": "Before: GPU sm% low/spiky, flame graph dominated by PIL/transform functions in the main Python process, slow s/step. After: higher steady sm%, faster steps, work spread over worker processes.",
+  "verify": [
+   "Two SVGs + dmon outputs committed",
+   "3-line root cause written"
+  ],
+  "broke": [
+   {
+    "symptom": "perf not found for this kernel",
+    "fix": "Install linux-tools-$(uname -r) / linux-tools-aws"
+   },
+   {
+    "symptom": "Python frames show as ??",
+    "fix": "Normal without frame pointers; the C-level PIL/libjpeg frames still tell the story"
+   }
+  ],
+  "commit": "linux/flamegraph/{cpu_before,cpu_after}.svg, notes/A2.md",
+  "cleanup": "terraform destroy",
+  "interview": "If GPU util is low I check whether the GPU is starved: CPU flame graph, dataloader workers, host-to-device copies, then GPU-side kernels with a profiler. Here the fix was more dataloader workers and pinned memory."
+ },
+ {
+  "id": "A3",
+  "level": "Intermediate",
+  "title": "Trace a GPU container end to end",
+  "env": "G1",
+  "hours": 6,
+  "cost": "~$1-2",
+  "goal": "Understand exactly how a GPU appears inside a container: runtime hook, device nodes, cgroup allow-list, CDI.",
+  "before": "H1",
+  "steps": [
+   {
+    "text": "On the GPU instance, run a CUDA container with Docker and look inside.",
+    "code": "docker run --rm --gpus all nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 bash -c 'ls -l /dev/nvidia*; nvidia-smi -L; mount | grep -i nvidia | head'"
+   },
+   {
+    "text": "See the runtime config and the OCI spec the runtime got.",
+    "code": "cat /etc/docker/daemon.json\nnvidia-ctk --version\nCID=$(docker run -d --gpus all nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 sleep 600)\nsudo cat /run/containerd/io.containerd.runtime.v2.task/moby/$CID/config.json | jq '.linux.devices, .hooks' | head -60"
+   },
+   {
+    "text": "cgroup v2 device control (eBPF): look at the container's cgroup.",
+    "code": "cat /proc/$(docker inspect -f '{{.State.Pid}}' $CID)/cgroup\nls -l /dev/nvidia* | awk '{print $5,$6,$10}'   # major,minor numbers"
+   },
+   {
+    "text": "Generate a CDI spec and run through CDI instead of the hook.",
+    "code": "sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml\nnvidia-ctk cdi list\ndocker run --rm --device nvidia.com/gpu=all nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi -L   # needs Docker 25+ with CDI enabled"
+   },
+   {
+    "text": "Break it twice and capture each error: (1) run without --gpus; (2) bind-mount a wrong libnvidia-ml version into the container.",
+    "code": "docker run --rm nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi    # error 1\n# error 2: docker run --rm --gpus all -v /path/to/other/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ... nvidia-smi"
+   }
+  ],
+  "expect": "Inside the container: /dev/nvidia0, /dev/nvidiactl, /dev/nvidia-uvm and driver libs mounted from the host. The OCI spec shows the hook (legacy) or CDI-injected devices.",
+  "verify": [
+   "Sequence diagram: docker/kubelet -> containerd -> nvidia runtime/CDI -> devices + libs -> process",
+   "Two failure modes reproduced with error text"
+  ],
+  "broke": [
+   {
+    "symptom": "--device nvidia.com/gpu=all unsupported",
+    "fix": "Docker too old or CDI not enabled; note it and use --gpus"
+   },
+   {
+    "symptom": "config.json path differs",
+    "fix": "find /run/containerd -name config.json | grep $CID"
+   }
+  ],
+  "commit": "k8s/gpu-container-sequence.png, notes/A3.md",
+  "cleanup": "docker rm -f $CID; terraform destroy",
+  "interview": "kubectl apply -> scheduler picks a node with nvidia.com/gpu -> kubelet asks the device plugin for a GPU -> containerd starts the container through the NVIDIA runtime or CDI, which adds /dev/nvidia* nodes, the cgroup device allow rules and the host driver libraries."
+ },
+ {
+  "id": "A4",
+  "level": "Intermediate",
+  "title": "Driver lifecycle and version matrix",
+  "env": "G1",
+  "hours": 8,
+  "cost": "~$2",
+  "goal": "Driver upgrades are the riskiest routine operation in a GPU fleet. Learn installation paths, persistence mode and the classic version-mismatch error.",
+  "before": "B2",
+  "steps": [
+   {
+    "text": "Use a plain Ubuntu 22.04 AMI this time (not the DL AMI) so you install the driver yourself: change the aws_ami filter in a copy of infra/gpu1 to Canonical ubuntu-jammy-22.04.",
+    "code": null
+   },
+   {
+    "text": "Record the stack.",
+    "code": "uname -r; lspci | grep -i nvidia"
+   },
+   {
+    "text": "Install path 1: distro package (ubuntu-drivers).",
+    "code": "sudo apt update && sudo apt install -y ubuntu-drivers-common\nubuntu-drivers devices\nsudo ubuntu-drivers install --gpgpu     # or: sudo apt install nvidia-driver-<ver>-server\nsudo reboot\nnvidia-smi; cat /proc/driver/nvidia/version; modinfo nvidia | head"
+   },
+   {
+    "text": "Persistence mode: measure first CUDA call latency with and without.",
+    "code": "sudo nvidia-smi -pm 0; time nvidia-smi -L\nsudo systemctl enable --now nvidia-persistenced || sudo nvidia-smi -pm 1\ntime nvidia-smi -L"
+   },
+   {
+    "text": "Reproduce 'Failed to initialize NVML: Driver/library version mismatch': upgrade the userspace package to a newer version without reboot, then fix by unloading modules in order.",
+    "code": "sudo apt install -y --only-upgrade 'nvidia-*'   # if an update exists; otherwise install a different branch\nnvidia-smi            # -> version mismatch\nsudo systemctl stop nvidia-persistenced\nsudo rmmod nvidia_uvm nvidia_drm nvidia_modeset nvidia\nsudo modprobe nvidia && nvidia-smi"
+   },
+   {
+    "text": "Read about open vs proprietary kernel modules (open-gpu-kernel-modules README) and the runfile installer. Write the fleet upgrade runbook: drain -> upgrade -> reboot -> DCGM r1 -> NCCL smoke -> uncordon; rollback trigger; NVSwitch systems also need matching Fabric Manager.",
+    "code": null
+   }
+  ],
+  "expect": "Persistence mode removes the multi-second init on first call. The mismatch error appears after a userspace upgrade and disappears after module reload/reboot.",
+  "verify": [
+   "Version table (kernel, driver, CUDA, toolkit, DCGM)",
+   "Runbook with gates and rollback"
+  ],
+  "broke": [
+   {
+    "symptom": "Secure Boot blocks module",
+    "fix": "Cloud instances usually have it off; on bare metal sign the module or disable Secure Boot"
+   },
+   {
+    "symptom": "rmmod: module in use",
+    "fix": "Stop dcgm, persistenced, any GPU process (sudo lsof /dev/nvidia*)"
+   }
+  ],
+  "commit": "gpu-health/driver-upgrade-runbook.md, notes/A4.md",
+  "cleanup": "terraform destroy",
+  "interview": "Fleet driver upgrade: canary 1% -> drain -> upgrade driver, toolkit and Fabric Manager together -> reboot -> DCGM r1 + NCCL smoke -> uncordon; stop and roll back if any gate fails or XIDs rise in the canary."
+ },
+ {
+  "id": "B3",
+  "level": "Intermediate",
+  "title": "Burn-in and thermal or power throttling",
+  "env": "G1",
+  "hours": 8,
+  "cost": "~$2",
+  "goal": "New GPUs are stressed for hours before customers get them. Learn to burn in, log clocks/temps/power, and spot throttling.",
+  "before": "B2",
+  "steps": [
+   {
+    "text": "Build gpu-burn.",
+    "code": "git clone https://github.com/wilicc/gpu-burn && cd gpu-burn && make"
+   },
+   {
+    "text": "Start logging every second, then burn for 30 minutes.",
+    "code": "nvidia-smi --query-gpu=timestamp,index,temperature.gpu,power.draw,power.limit,clocks.sm,clocks_event_reasons.active,ecc.errors.uncorrected.volatile.total --format=csv -l 1 > burn.csv &\n./gpu_burn 1800\nkill %1\n# older drivers: field name is clocks_throttle_reasons.active"
+   },
+   {
+    "text": "Make throttling happen on purpose by lowering the power limit, burn again 5 minutes.",
+    "code": "nvidia-smi -q -d POWER | grep -i 'limit'\nsudo nvidia-smi -pl 50     # watts; pick something below default\n./gpu_burn 300\nsudo nvidia-smi -pl <default>"
+   },
+   {
+    "text": "Memory test.",
+    "code": "git clone https://github.com/ComputationalRadiationPhysics/cuda_memtest && cd cuda_memtest && mkdir build && cd build && cmake .. && make -j && ./cuda_memtest --stress --num_passes 1"
+   },
+   {
+    "text": "Plot burn.csv (temperature, power, SM clock over time) and mark where clocks drop. Decode the clock-event bitmask (nvidia-smi -q -d PERFORMANCE explains reasons). Write your pass rule.",
+    "code": null
+   },
+   {
+    "text": "Optional second opinion: Hugging Face gpu-fryer (README for build/run).",
+    "code": null
+   }
+  ],
+  "expect": "Steady clocks at default power; under a low power cap SM clock drops and the 'SW Power Cap' reason is active. No uncorrected ECC.",
+  "verify": [
+   "Plot with the throttle region annotated",
+   "Pass rule written (ECC, slowdown reasons, temp ceiling, clocks within X% of median GPU)"
+  ],
+  "broke": [
+   {
+    "symptom": "-pl not permitted",
+    "fix": "Some cloud GPUs lock power limits - note it; rely on thermal/clock data"
+   },
+   {
+    "symptom": "cuda_memtest build fails",
+    "fix": "Check CMake CUDA arch flags in its README"
+   }
+  ],
+  "commit": "gpu-health/burnin/{burn.csv,plot.png,pass-rule.md}, notes/B3.md",
+  "cleanup": "terraform destroy",
+  "interview": "I burn in for hours with gpu-burn plus a memory test, log clocks/temp/power/event reasons per second, and fail a GPU for uncorrectable ECC, sustained HW slowdown, or clocks well below the median of its peers."
+ },
+ {
+  "id": "B4",
+  "level": "Intermediate",
+  "title": "Automated quarantine with NVSentinel (exploratory)",
+  "env": "G1",
+  "hours": 8,
+  "cost": "~$2",
+  "goal": "Read and run NVIDIA's open-source fault detection + remediation system. Understand the design even if you can't trigger real hardware faults.",
+  "before": "H1",
+  "steps": [
+   {
+    "text": "On the k3s GPU node from H1, follow the NVSentinel docs to install it (Helm). Record each component it deploys.",
+    "code": "git clone https://github.com/NVIDIA/NVSentinel && ls NVSentinel && less NVSentinel/README.md"
+   },
+   {
+    "text": "List monitors (GPU health via DCGM, syslog, cloud events, K8s objects) and the remediation flow (quarantine -> drain -> remediate) with the circuit breaker.",
+    "code": null
+   },
+   {
+    "text": "Write one quarantine rule in CEL following their examples; try to trigger it (e.g. inject a fake syslog XID line with logger -p kern.err 'NVRM: Xid (PCI:0000:00:1e): 79, test' if the syslog monitor reads it).",
+    "code": "logger -p kern.err 'NVRM: Xid (PCI:0000:00:1e): 79, pid=0, test injected'\nkubectl get nodes   # watch for cordon/taint"
+   },
+   {
+    "text": "Design note: GPU reset vs node reboot vs RMA, and how the circuit breaker prevents draining the cluster during a fleet-wide event.",
+    "code": null
+   }
+  ],
+  "expect": "Components running; either a quarantine event from your injected line or a clear note of what needs real faults.",
+  "verify": [
+   "Design note with screenshots",
+   "You can explain circuit breakers in remediation"
+  ],
+  "broke": [
+   {
+    "symptom": "Chart values unknown",
+    "fix": "Read values.yaml in the repo; start with defaults on a single node"
+   }
+  ],
+  "commit": "k8s/nvsentinel/notes.md, notes/B4.md",
+  "cleanup": "terraform destroy",
+  "interview": "Recoverable fault (e.g. XID 63, 94): drain and reset the GPU at a safe point. Bus or firmware faults (79, 119): reboot the node. Repeats on the same GPU or row-remap failures: RMA. A circuit breaker stops remediation when too many nodes fail at once - that's a fleet problem, not a node problem."
+ },
+ {
+  "id": "C2",
+  "level": "Intermediate",
+  "title": "Measure the NUMA mis-pinning penalty",
+  "env": "G4",
+  "hours": 5,
+  "cost": "~$5-10",
+  "goal": "Show with numbers why a GPU's process must run on the CPU socket closest to it.",
+  "before": "C1",
+  "steps": [
+   {
+    "text": "You need a 2-socket instance. Check with numactl -H (2 nodes). On AWS that means larger sizes (e.g. g4dn.metal, g5.48xlarge) - check numactl -H before running; on a single-node box you can only show the method.",
+    "code": "numactl -H; nvidia-smi topo -m"
+   },
+   {
+    "text": "Build nvbandwidth.",
+    "code": "sudo apt install -y cmake libboost-program-options-dev\ngit clone https://github.com/NVIDIA/nvbandwidth && cd nvbandwidth && cmake . && make -j\n./nvbandwidth -l | head -30"
+   },
+   {
+    "text": "Local vs remote socket for GPU0 (from topo -m: CPU Affinity / NUMA Affinity column).",
+    "code": "numactl --cpunodebind=0 --membind=0 ./nvbandwidth -t host_to_device_memcpy_ce -d 0\nnumactl --cpunodebind=1 --membind=1 ./nvbandwidth -t host_to_device_memcpy_ce -d 0\n# repeat for device_to_host_memcpy_ce"
+   },
+   {
+    "text": "Add memory contention on the local socket and repeat.",
+    "code": "numactl --cpunodebind=0 --membind=0 stress-ng --stream 8 --timeout 120 &"
+   },
+   {
+    "text": "Table: local vs remote bandwidth, % penalty. Write the 30-second explanation.",
+    "code": null
+   }
+  ],
+  "expect": "Remote-socket runs show lower host<->device bandwidth (the copy crosses the CPU interconnect).",
+  "verify": [
+   "Results table",
+   "30-second explanation"
+  ],
+  "broke": [
+   {
+    "symptom": "-d flag unknown",
+    "fix": "Check ./nvbandwidth --help for the device selection flag in your version"
+   }
+  ],
+  "commit": "topology/numa-penalty.md, notes/C2.md",
+  "cleanup": "terraform destroy",
+  "interview": "A GPU and its NIC hang off one socket's PCIe root. If the process and its memory live on the other socket, every copy crosses the inter-socket link, cutting bandwidth and adding latency - so we bind ranks to the local NUMA node and NIC."
+ },
+ {
+  "id": "C3",
+  "level": "Intermediate",
+  "title": "PCIe link health, AER, ACS and IOMMU",
+  "env": "G1",
+  "hours": 6,
+  "cost": "~$1-2",
+  "goal": "A GPU running at x8 or Gen3 instead of x16 Gen4/5 silently halves bandwidth. Build a checker.",
+  "before": "C1",
+  "steps": [
+   {
+    "text": "Compare capability vs status for each NVIDIA device.",
+    "code": "for d in $(lspci -D -d 10de: | awk '{print $1}'); do echo \"== $d\"; sudo lspci -vv -s $d | grep -E 'LnkCap:|LnkSta:'; done"
+   },
+   {
+    "text": "AER counters and kernel messages.",
+    "code": "for d in /sys/bus/pci/devices/*; do [ -f $d/aer_dev_correctable ] && grep -H . $d/aer_dev_{correctable,fatal,nonfatal} 2>/dev/null; done | grep -v ' 0$' | head\nsudo dmesg -T | grep -i aer"
+   },
+   {
+    "text": "ACS and IOMMU state.",
+    "code": "sudo lspci -vvv | grep -i ACSCtl | head\ncat /proc/cmdline | tr ' ' '\\n' | grep -i iommu\nls /sys/kernel/iommu_groups | wc -l"
+   },
+   {
+    "text": "Write pcie_check.sh: exit non-zero if any GPU/NIC link width/speed in LnkSta < LnkCap, any non-zero AER fatal/nonfatal, or IOMMU not off/passthrough (GPUDirect requirement).",
+    "code": "# skeleton\n#!/bin/bash\nrc=0\nfor d in $(lspci -D -d 10de: | awk '{print $1}'); do\n  cap=$(sudo lspci -vv -s $d | grep -oP 'LnkCap:.*?Speed \\K[^,]+, Width x\\d+')\n  sta=$(sudo lspci -vv -s $d | grep -oP 'LnkSta:.*?Speed \\K[^,]+(?: \\(.*?\\))?, Width x\\d+')\n  echo \"$d cap=[$cap] sta=[$sta]\"\n  [[ \"$sta\" == *\"downgraded\"* ]] && { echo \"  DOWNTRAINED\"; rc=1; }\ndone\nexit $rc"
+   }
+  ],
+  "expect": "On a healthy cloud GPU LnkSta matches LnkCap (cloud VMs may hide some PCIe details - note what you can and cannot see in a VM vs bare metal).",
+  "verify": [
+   "pcie_check.sh returns 0 on a healthy node",
+   "You wrote what a failing transcript would look like"
+  ],
+  "broke": [
+   {
+    "symptom": "LnkSta shows lower speed at idle",
+    "fix": "GPUs downclock PCIe when idle - run a load (gpu_burn) and re-check"
+   }
+  ],
+  "commit": "topology/pcie_check.sh, notes/C3.md",
+  "cleanup": "terraform destroy",
+  "interview": "Half PCIe bandwidth: compare LnkCap vs LnkSta under load for width/gen downtraining, check AER errors and dmesg, reseat/swap riser or cable, check BIOS link settings, then re-measure with nvbandwidth."
+ },
+ {
+  "id": "D2",
+  "level": "Intermediate",
+  "title": "Boot OpenBMC in QEMU and talk to it two ways",
+  "env": "V",
+  "hours": 8,
+  "cost": "~$3-6 (build machine)",
+  "goal": "See a BMC from the inside: boot real OpenBMC firmware in an emulator, query it with Redfish and IPMI.",
+  "before": "D1",
+  "steps": [
+   {
+    "text": "Building OpenBMC needs ~100 GB disk and hours of CPU. Use a big spot VM (e.g. c6i.8xlarge, 200 GB gp3) via a copy of infra/vms with count=1, or a strong Linux PC. Install Yocto build deps (OpenBMC README lists them).",
+    "code": "sudo apt install -y git build-essential chrpath cpio diffstat gawk lz4 zstd python3 python3-distutils file wget qemu-system-arm"
+   },
+   {
+    "text": "Build an image for an emulated machine (romulus is the long-standing QEMU target; check the README for current targets).",
+    "code": "git clone https://github.com/openbmc/openbmc && cd openbmc\n. setup romulus\nbitbake obmc-phosphor-image      # hours; run inside tmux"
+   },
+   {
+    "text": "Boot it in QEMU with port forwards for SSH, HTTPS (Redfish) and IPMI.",
+    "code": "IMG=$(ls tmp/deploy/images/romulus/obmc-phosphor-image-romulus*.static.mtd | head -1)\nqemu-system-arm -m 256 -M romulus-bmc -nographic \\\n  -drive file=$IMG,format=raw,if=mtd \\\n  -net nic -net user,hostfwd=:127.0.0.1:2222-:22,hostfwd=:127.0.0.1:2443-:443,hostfwd=udp:127.0.0.1:2623-:623,hostname=qemu"
+   },
+   {
+    "text": "From another terminal, Redfish and IPMI (OpenBMC's documented default dev credentials: root / 0penBmc).",
+    "code": "curl -k -u root:0penBmc https://127.0.0.1:2443/redfish/v1 | jq .\ncurl -k -u root:0penBmc https://127.0.0.1:2443/redfish/v1/Managers/bmc | jq .\nsudo apt install -y ipmitool\nipmitool -I lanplus -H 127.0.0.1 -p 2623 -U root -P 0penBmc mc info\nipmitool -I lanplus -H 127.0.0.1 -p 2623 -U root -P 0penBmc sdr\nipmitool -I lanplus -H 127.0.0.1 -p 2623 -U root -P 0penBmc sel list\nipmitool -I lanplus -H 127.0.0.1 -p 2623 -U root -P 0penBmc chassis status\npython3 ~/gpu-lab/bmc/redfish_health.py https://127.0.0.1:2443 root 0penBmc"
+   },
+   {
+    "text": "Table the same facts via IPMI and Redfish.",
+    "code": null
+   }
+  ],
+  "expect": "BMC console boots to a login prompt; Redfish service root returns JSON; ipmitool mc info answers.",
+  "verify": [
+   "Comparison table",
+   "Transcript saved"
+  ],
+  "broke": [
+   {
+    "symptom": "bitbake fails on host deps",
+    "fix": "Install the exact package list from the OpenBMC/Yocto docs for your Ubuntu version"
+   },
+   {
+    "symptom": "No IPMI answer",
+    "fix": "IPMI may not be enabled in that image - note it, Redfish is the main path"
+   }
+  ],
+  "commit": "bmc/openbmc-qemu.md, notes/D2.md",
+  "cleanup": "terraform destroy (the build VM is expensive)",
+  "interview": "The BMC is a separate small computer on the board with its own network. When the host OS hangs, it still reports sensors and logs and can power-cycle the host, give a serial console and update firmware."
+ },
+ {
+  "id": "E2",
+  "level": "Intermediate",
+  "title": "EFA on AWS, validated the way ProServe would",
+  "env": "G2N",
+  "hours": 10,
+  "cost": "~$15-25",
+  "goal": "Bring up two EFA nodes, prove EFA is used by NCCL, and record the version matrix.",
+  "before": "S9, F1",
+  "steps": [
+   {
+    "text": "Apply infra/efa2 (S9). Open sessions to both nodes.",
+    "code": "cd ~/gpu-lab/infra/efa2 && terraform apply && terraform output"
+   },
+   {
+    "text": "On both: EFA present?",
+    "code": "fi_info -p efa -t FI_EP_RDM | head\nibv_devinfo | head -20\ncat /opt/amazon/efa_installed_packages 2>/dev/null | head"
+   },
+   {
+    "text": "Passwordless SSH node0 -> node1 (needed by mpirun). Allow it inside the SG only.",
+    "code": "# node0\nssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 && cat ~/.ssh/id_ed25519.pub\n# node1: paste into ~/.ssh/authorized_keys\n# node0\nssh <node1_ip> hostname"
+   },
+   {
+    "text": "Build nccl-tests with MPI on both (same path on both nodes).",
+    "code": "git clone https://github.com/NVIDIA/nccl-tests ~/nccl-tests && cd ~/nccl-tests\nmake -j MPI=1 MPI_HOME=/opt/amazon/openmpi CUDA_HOME=/usr/local/cuda NCCL_HOME=/usr/local/cuda   # adjust NCCL_HOME as in F1"
+   },
+   {
+    "text": "Run 8 ranks (4 per node) across both and confirm the EFA path in the logs.",
+    "code": "cat > ~/hosts <<EOF\n<node0_ip> slots=4\n<node1_ip> slots=4\nEOF\n/opt/amazon/openmpi/bin/mpirun -n 8 -N 4 --hostfile ~/hosts --bind-to none \\\n  -x FI_PROVIDER=efa -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \\\n  ~/nccl-tests/build/all_reduce_perf -b 8 -e 2G -f 2 -g 1 2>&1 | tee ~/efa-ar.txt\ngrep -iE 'NET/OFI|Selected provider|Using network' ~/efa-ar.txt | head"
+   },
+   {
+    "text": "Version matrix: EFA installer, libfabric (fi_info --version), aws-ofi-nccl, NCCL (from NCCL INFO line), driver, CUDA. Compare with the HyperPod validation doc (gpu.html E2).",
+    "code": null
+   },
+   {
+    "text": "Destroy both nodes immediately after.",
+    "code": "terraform destroy -auto-approve"
+   }
+  ],
+  "expect": "NCCL INFO lines mention NET/OFI and provider efa. busbw at large sizes clearly higher than a socket run (see F2).",
+  "verify": [
+   "Version matrix committed",
+   "Log line proving EFA in use"
+  ],
+  "broke": [
+   {
+    "symptom": "NCCL falls back to Socket",
+    "fix": "Check: aws-ofi-nccl lib on LD_LIBRARY_PATH, FI_PROVIDER=efa, SG self ingress+egress all traffic, same placement group"
+   },
+   {
+    "symptom": "mpirun hangs at start",
+    "fix": "SSH between nodes or hostfile IPs wrong; --mca btl_tcp_if_include <eth>"
+   }
+  ],
+  "commit": "nccl/efa/{versions.md,efa-ar.txt}, notes/E2.md",
+  "cleanup": "terraform destroy; labdown",
+  "interview": "If NCCL falls back to sockets on EFA, I check: is the aws-ofi-nccl plugin loaded (NCCL_DEBUG=INFO shows NET/OFI), does fi_info see efa, and does the security group allow all traffic to itself in both directions - plus placement group and matching versions."
+ },
+ {
+  "id": "E3",
+  "level": "Intermediate",
+  "title": "InfiniBand diagnostics cheat sheet (study task)",
+  "env": "L",
+  "hours": 8,
+  "cost": "$0 (hardware optional)",
+  "goal": "InfiniBand can't be emulated cheaply. Learn the tools and counters well enough to read real output, then confirm on borrowed hardware.",
+  "before": "E1",
+  "steps": [
+   {
+    "text": "Read NVIDIA UFM 'InfiniBand diagnostic utilities' (gpu.html E3). Table: ibstat, ibstatus, iblinkinfo, ibnetdiscover, perfquery, ibdiagnet, ibping - what each shows, when to use it.",
+    "code": null
+   },
+   {
+    "text": "Counter table from perfquery: SymbolErrorCounter, LinkErrorRecoveryCounter, LinkDownedCounter, PortRcvErrors, PortXmitDiscards, PortXmitWait - likely cause and action for each.",
+    "code": null
+   },
+   {
+    "text": "Skim opensm source/README: what the subnet manager does (LIDs, routing tables) and why one must be running.",
+    "code": "git clone https://github.com/linux-rdma/opensm && less opensm/README"
+   },
+   {
+    "text": "If you get time on an IB cluster (LaunchPad, colleague), run each tool and paste real output into the sheet.",
+    "code": "ibstat\niblinkinfo | head\nperfquery -x\nsudo ibdiagnet"
+   }
+  ],
+  "expect": "A one-page cheat sheet; entries you haven't seen on hardware clearly marked.",
+  "verify": [
+   "Cheat sheet in repo"
+  ],
+  "broke": [],
+  "commit": "rdma/ib-cheatsheet.md",
+  "cleanup": "-",
+  "interview": "Rising symbol errors: check the counter rate after clearing, look at both ends, reseat/clean the cable, check the transceiver temperature/power, swap ports to see if the error follows the cable or the port, then replace."
+ },
+ {
+  "id": "E5",
+  "level": "Intermediate",
+  "title": "GPUDirect RDMA and the storage path",
+  "env": "R",
+  "hours": 8,
+  "cost": "borrowed / rented",
+  "goal": "Prove data goes NIC <-> GPU memory directly and see topology affect it. Needs ConnectX or EFA nodes that support GPUDirect RDMA (e.g. AWS p4d/p5) - usually rented or borrowed.",
+  "before": "E2, C1",
+  "steps": [
+   {
+    "text": "Peer memory module loaded?",
+    "code": "lsmod | grep -E 'peermem|nv_peer'\nsudo modprobe nvidia-peermem"
+   },
+   {
+    "text": "NCCL shows GPUDirect use.",
+    "code": "NCCL_DEBUG=INFO <your F2 mpirun all_reduce command> 2>&1 | grep -iE 'GDR|GPU Direct|gdr'"
+   },
+   {
+    "text": "CUDA-aware perftest: GPU memory vs host memory.",
+    "code": "ib_write_bw -d <mlx5_0> --use_cuda=0            # server\nib_write_bw -d <mlx5_0> --use_cuda=0 <server>   # client\n# repeat without --use_cuda"
+   },
+   {
+    "text": "GDRCopy tests and read how GPUDirect Storage uses nvidia-fs.",
+    "code": "git clone https://github.com/NVIDIA/gdrcopy && cd gdrcopy && make && sudo ./insmod.sh && ./build/copybw"
+   },
+   {
+    "text": "Tie to C1: NIC and GPU under the same PCIe switch vs across sockets.",
+    "code": null
+   }
+  ],
+  "expect": "GDR lines in NCCL logs; GPU-memory perftest near host-memory numbers when topology is right.",
+  "verify": [
+   "4 measurements + conclusion"
+  ],
+  "broke": [
+   {
+    "symptom": "modprobe nvidia-peermem fails",
+    "fix": "Needs MLNX_OFED/inbox RDMA stack matching the driver; on EFA, GDR support depends on instance type"
+   }
+  ],
+  "commit": "rdma/gpudirect.md",
+  "cleanup": "release rented node",
+  "interview": "GPUDirect RDMA needs the GPU and NIC under the same PCIe root complex (ideally same switch), IOMMU off or passthrough, ACS not forcing traffic up to the root, and the peer-memory module loaded."
+ },
+ {
+  "id": "F2",
+  "level": "Intermediate",
+  "title": "Scale 1 to 2 nodes, with and without EFA",
+  "env": "G2N",
+  "hours": 10,
+  "cost": "~$15-25",
+  "goal": "Measure how all-reduce scales across nodes and what the fabric is worth.",
+  "before": "E2",
+  "steps": [
+   {
+    "text": "Same nodes as E2 (do E2 and F2 in one session to save money). 1 node baseline:",
+    "code": "~/nccl-tests/build/all_reduce_perf -b 8 -e 2G -f 2 -g 4 | tee 1node.txt"
+   },
+   {
+    "text": "2 nodes over EFA (command from E2) -> 2node-efa.txt. Then force TCP sockets:",
+    "code": "/opt/amazon/openmpi/bin/mpirun -n 8 -N 4 --hostfile ~/hosts --bind-to none -x NCCL_NET=Socket -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH \\\n  ~/nccl-tests/build/all_reduce_perf -b 8 -e 2G -f 2 -g 1 | tee 2node-socket.txt"
+   },
+   {
+    "text": "Sweep a few variables and keep only what changed results.",
+    "code": "# -x NCCL_ALGO=Ring|Tree   -x NCCL_MIN_NCHANNELS=..   -x NCCL_SOCKET_IFNAME=ens5"
+   },
+   {
+    "text": "Read aws-samples/awsome-distributed-training micro-benchmarks and their Slurm launch scripts (gpu.html F2) - that's how it's done at scale.",
+    "code": null
+   },
+   {
+    "text": "Scaling table: busbw at 1 GB+ for 1 node, 2 nodes EFA, 2 nodes socket. Efficiency and a 3-sentence interpretation.",
+    "code": null
+   }
+  ],
+  "expect": "2-node EFA busbw well above socket fallback; intra-node PCIe on g4dn may itself be the limit - explain which link is the bottleneck.",
+  "verify": [
+   "Scaling table + interpretation"
+  ],
+  "broke": [
+   {
+    "symptom": "Numbers noisy",
+    "fix": "Run each 3 times, use -n 50 iterations, report median"
+   }
+  ],
+  "commit": "nccl/scaling/*.txt, nccl/scaling/README.md",
+  "cleanup": "terraform destroy",
+  "interview": "busbw drops 2->4 nodes: check whether the job crossed a spine (topology/placement), per-NIC errors and congestion counters, a straggler node (F4 bisection), NCCL picking the wrong NIC/algorithm, then rail alignment."
+ },
+ {
+  "id": "F3",
+  "level": "Intermediate",
+  "title": "Debug a hang and a straggler",
+  "env": "G4",
+  "hours": 10,
+  "cost": "~$5-10",
+  "goal": "Reproduce the two most common distributed-training incidents and learn to diagnose them.",
+  "before": "F1",
+  "steps": [
+   {
+    "text": "4-GPU node, PyTorch installed (DL AMI has conda/pip - create a venv with torch).",
+    "code": "python3 -m venv ~/v && . ~/v/bin/activate && pip install torch"
+   },
+   {
+    "text": "Straggler script.",
+    "code": "cat > ar_loop.py <<'EOF'\nimport os, time, datetime, torch, torch.distributed as dist\ndist.init_process_group('nccl', timeout=datetime.timedelta(seconds=60))\nr = dist.get_rank(); torch.cuda.set_device(int(os.environ['LOCAL_RANK']))\nx = torch.ones(64*1024*1024, device='cuda')\nslow = int(os.environ.get('SLOW_RANK', -1))\nfor i in range(500):\n    if r == slow: time.sleep(0.2)\n    t = time.time(); dist.all_reduce(x); torch.cuda.synchronize()\n    if r == 0 and i % 10 == 0: print(i, f'{(time.time()-t)*1000:.1f} ms', flush=True)\ndist.destroy_process_group()\nEOF\ntorchrun --nproc_per_node=4 ar_loop.py\nSLOW_RANK=2 torchrun --nproc_per_node=4 ar_loop.py     # every rank's step time jumps"
+   },
+   {
+    "text": "Hang: kill one rank mid-run and watch the others.",
+    "code": "NCCL_DEBUG=INFO TORCH_NCCL_ASYNC_ERROR_HANDLING=1 torchrun --nproc_per_node=4 ar_loop.py &\nsleep 20; pkill -9 -f 'ar_loop.py' -n    # kills newest rank\n# observe: others block until the 60 s timeout, then error"
+   },
+   {
+    "text": "Get stacks from a hung process.",
+    "code": "pip install py-spy && sudo ~/v/bin/py-spy dump --pid <pid>"
+   },
+   {
+    "text": "Read nvidia-resiliency-ext straggler detection and torchft docs (gpu.html F3); try their example if time allows.",
+    "code": null
+   },
+   {
+    "text": "Incident report: symptom, hypotheses, evidence, fix.",
+    "code": null
+   }
+  ],
+  "expect": "With SLOW_RANK all ranks slow down equally (collectives wait for the slowest). Killing a rank makes others hang until the NCCL/PG timeout.",
+  "verify": [
+   "Incident report",
+   "Repro scripts committed"
+  ],
+  "broke": [
+   {
+    "symptom": "torchrun not found",
+    "fix": "Activate the venv; or python -m torch.distributed.run"
+   }
+  ],
+  "commit": "nccl/debug/{ar_loop.py,incident.md}",
+  "cleanup": "terraform destroy",
+  "interview": "Hang after hours: find which rank stopped (NCCL_DEBUG, flight recorder, py-spy dumps), check that node's dmesg for XIDs, NIC errors and OOM, check for a straggler via per-rank step times, then bisect nodes if it's fabric."
+ },
+ {
+  "id": "G2",
+  "level": "Intermediate",
+  "title": "Slurm on real GPU nodes with containers and health checks",
+  "env": "G4",
+  "hours": 12,
+  "cost": "~$5-10",
+  "goal": "A real single-node Slurm with GPUs, container jobs (Pyxis/Enroot) and Node Health Check.",
+  "before": "G1, F1",
+  "steps": [
+   {
+    "text": "Install Slurm from Ubuntu packages on the 4-GPU node (controller + compute on one box).",
+    "code": "sudo apt install -y slurm-wlm munge\nsudo systemctl enable --now munge\nslurmd -C      # prints this node's NodeName line"
+   },
+   {
+    "text": "Minimal config.",
+    "code": "sudo tee /etc/slurm/slurm.conf <<EOF\nClusterName=lab\nSlurmctldHost=$(hostname -s)\nProctrackType=proctrack/cgroup\nTaskPlugin=task/cgroup\nGresTypes=gpu\nSelectType=select/cons_tres\n$(slurmd -C | head -1) Gres=gpu:4 State=UNKNOWN\nPartitionName=gpu Nodes=ALL Default=YES MaxTime=INFINITE State=UP\nEOF\nsudo tee /etc/slurm/gres.conf <<EOF\nName=gpu File=/dev/nvidia[0-3]\nEOF\nsudo tee /etc/slurm/cgroup.conf <<EOF\nConstrainDevices=yes\nEOF\nsudo systemctl restart slurmctld slurmd && sinfo"
+   },
+   {
+    "text": "Isolation proof: two jobs at once, each sees only its GPUs.",
+    "code": "srun --gres=gpu:2 nvidia-smi -L &\nsrun --gres=gpu:2 nvidia-smi -L &\nwait"
+   },
+   {
+    "text": "Containers with Enroot + Pyxis (install .deb packages from their GitHub releases per README; add 'required /usr/lib/x86_64-linux-gnu/slurm/spank_pyxis.so' to /etc/slurm/plugstack.conf).",
+    "code": "srun --gres=gpu:1 --container-image=nvcr.io#nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi -L"
+   },
+   {
+    "text": "Node Health Check: install from mej/nhc, add checks for GPU count and dmesg XIDs, run as HealthCheckProgram.",
+    "code": "# /etc/nhc/nhc.conf example lines\n* || check_cmd_output -t 10 -m '/4/' 'nvidia-smi -L | wc -l'\n# slurm.conf\nHealthCheckProgram=/usr/sbin/nhc\nHealthCheckInterval=300"
+   },
+   {
+    "text": "Run nccl-tests as a Slurm job.",
+    "code": "sbatch --gres=gpu:4 --wrap='~/nccl-tests/build/all_reduce_perf -b 8 -e 1G -f 2 -g 4'"
+   }
+  ],
+  "expect": "sinfo shows the node idle with gpu:4; concurrent jobs each list 2 different GPUs; container job runs; NHC drains the node if you make a check fail.",
+  "verify": [
+   "Config files committed",
+   "Transcript of isolation + drain"
+  ],
+  "broke": [
+   {
+    "symptom": "Node stuck in DOWN/DRAIN",
+    "fix": "scontrol update nodename=<n> state=resume; read 'sinfo -R' for the reason"
+   },
+   {
+    "symptom": "Package Slurm lacks NVML autodetect",
+    "fix": "That's why gres.conf lists File= explicitly"
+   }
+  ],
+  "commit": "slurm/real/{slurm.conf,gres.conf,cgroup.conf,nhc.conf}, notes/G2.md",
+  "cleanup": "terraform destroy",
+  "interview": "At job start (prolog) I run fast checks: GPU count, no new XIDs, driver loaded, DCGM r1. Continuously (NHC every few minutes): ECC, NIC link state, filesystem mounts, temps. Weekly or on idle: DCGM r3 and NCCL bisection."
+ },
+ {
+  "id": "G3",
+  "level": "Intermediate",
+  "title": "Provision the same cluster on three clouds",
+  "env": "G2N",
+  "hours": 14,
+  "cost": "~$10-30",
+  "goal": "Know how each hyperscaler builds HPC/AI clusters. Build one for real (AWS ParallelCluster), read the other two.",
+  "before": "G2",
+  "steps": [
+   {
+    "text": "AWS ParallelCluster: install the CLI and create a tiny Slurm cluster with 1-2 GPU nodes (use spot, small max count).",
+    "code": "python3 -m venv ~/pc && . ~/pc/bin/activate && pip install aws-parallelcluster\npcluster version\npcluster configure --config cluster.yaml     # pick Slurm, a GPU queue, max 2 nodes, EFA if type supports\npcluster create-cluster -n lab -c cluster.yaml\npcluster describe-cluster -n lab"
+   },
+   {
+    "text": "Time to first job; run nccl-tests; record every failure you hit.",
+    "code": null
+   },
+   {
+    "text": "Read Azure CycleCloud Slurm + azurehpc-health-checks and Google Cluster Toolkit blueprints (gpu.html G3/I1). Fill the matrix: provisioning tool, image, scheduler, interconnect, storage, health tooling.",
+    "code": null
+   },
+   {
+    "text": "Delete.",
+    "code": "pcluster delete-cluster -n lab"
+   }
+  ],
+  "expect": "A working ParallelCluster Slurm with GPU compute nodes; a comparison matrix for 3 clouds.",
+  "verify": [
+   "Matrix + post-mortem"
+  ],
+  "broke": [
+   {
+    "symptom": "Cluster creation fails",
+    "fix": "pcluster get-cluster-stack-events -n lab; usually quota or AZ capacity"
+   }
+  ],
+  "commit": "cloud/three-clouds.md",
+  "cleanup": "pcluster delete-cluster; labdown",
+  "interview": "AWS exposes EFA via libfabric + aws-ofi-nccl, Azure uses InfiniBand on HB/ND VMs, Google uses its own GPU NICs/GPUDirect variants per machine type - so NCCL plugins, tuning and health checks differ even with the same GPU."
+ },
+ {
+  "id": "G5",
+  "level": "Intermediate",
+  "title": "Rack to OS: PXE-boot a cluster you built",
+  "env": "L",
+  "hours": 12,
+  "cost": "$0 (VirtualBox)",
+  "goal": "See how a bare server becomes a node: DHCP, PXE/iPXE, kernel+image, config. Uses VirtualBox on your laptop, no nested virtualization needed.",
+  "before": "S1",
+  "steps": [
+   {
+    "text": "Install VirtualBox on Windows. Create an 'Internal Network' named pxe. VM1 'ww-server' (Rocky/Ubuntu, 2 vCPU, 4 GB, NIC1 NAT, NIC2 internal 'pxe'). VM2 and VM3 'node1/node2' (1-2 GB RAM, no disk needed, NIC internal 'pxe', boot order Network first).",
+    "code": null
+   },
+   {
+    "text": "Install Warewulf on ww-server following its quick-start for your distro (packages or source); set the internal NIC as provisioning interface.",
+    "code": "# check the Warewulf docs quick start; typical flow:\nsudo wwctl configure --all\nsudo wwctl container import docker://ghcr.io/warewulf/warewulf-rockylinux:9 rocky-9\nsudo wwctl node add node1 --ipaddr=10.0.2.101 --hwaddr=<node1 MAC from VirtualBox>\nsudo wwctl node add node2 --ipaddr=10.0.2.102 --hwaddr=<node2 MAC>\nsudo wwctl node set node1 --container rocky-9; sudo wwctl node set node2 --container rocky-9\nsudo wwctl overlay build && sudo wwctl configure --all"
+   },
+   {
+    "text": "Power on node1/node2 and watch them PXE boot into the image.",
+    "code": null
+   },
+   {
+    "text": "Draw the full flow: BMC power-on (Redfish) -> DHCP -> TFTP/iPXE -> kernel+initramfs -> image -> config management -> join Slurm/K8s. Read how MAAS, Tinkerbell, Metal3, Ironic do it.",
+    "code": null
+   }
+  ],
+  "expect": "Both nodes boot over the network with no local disk and get a shell.",
+  "verify": [
+   "Boot-flow diagram",
+   "Screenshot of node booting"
+  ],
+  "broke": [
+   {
+    "symptom": "Node says 'No bootable medium'",
+    "fix": "Boot order Network first; NIC attached to internal network 'pxe'; DHCP served on the right interface"
+   }
+  ],
+  "commit": "cloud/pxe-flow.png, notes/G5.md",
+  "cleanup": "power off VMs",
+  "interview": "Racked server -> BMC powers it on via Redfish -> PXE/DHCP gives an iPXE script -> kernel and image load -> config management installs driver/OFED/agents -> burn-in and validation -> node joins Slurm or Kubernetes."
+ },
+ {
+  "id": "H2",
+  "level": "Intermediate",
+  "title": "GPU sharing: time-slicing, MPS and MIG",
+  "env": "R",
+  "hours": 8,
+  "cost": "time-slicing: G1 ~$2; MIG: rented A100/H100",
+  "goal": "Know the three ways to share a GPU and when each is right.",
+  "before": "H1",
+  "steps": [
+   {
+    "text": "Time-slicing (works on the T4 from H1): ConfigMap + ClusterPolicy patch.",
+    "code": "cat > ts.yaml <<'EOF'\napiVersion: v1\nkind: ConfigMap\nmetadata: { name: time-slicing-config, namespace: gpu-operator }\ndata:\n  any: |-\n    version: v1\n    flags: { migStrategy: none }\n    sharing:\n      timeSlicing:\n        resources:\n        - name: nvidia.com/gpu\n          replicas: 4\nEOF\nkubectl apply -f ts.yaml\nkubectl patch clusterpolicies.nvidia.com/cluster-policy -n gpu-operator --type merge \\\n  -p '{\"spec\":{\"devicePlugin\":{\"config\":{\"name\":\"time-slicing-config\",\"default\":\"any\"}}}}'\nkubectl describe node | grep nvidia.com/gpu     # capacity becomes 4"
+   },
+   {
+    "text": "Run 2 pods on the one GPU and measure interference (e.g. both running a matmul loop, compare per-step time alone vs together).",
+    "code": null
+   },
+   {
+    "text": "MIG on a rented A100/H100 (bare GPU access needed):",
+    "code": "sudo nvidia-smi -i 0 -mig 1        # may need GPU reset/reboot\nnvidia-smi mig -lgip               # available profiles\nsudo nvidia-smi mig -cgi 19,19,19 -C   # e.g. three 1g instances (profile IDs differ per GPU - use -lgip output)\nnvidia-smi -L\n# declarative: nvidia-mig-parted apply -f config.yaml -c <profile-name>"
+   },
+   {
+    "text": "One-page guide: time-slicing (no isolation, oversubscription), MPS (concurrent kernels, limited isolation), MIG (hardware isolation of memory and SMs, fixed sizes, A100/H100+).",
+    "code": null
+   }
+  ],
+  "expect": "Time-slicing shows nvidia.com/gpu: 4 on a single T4; MIG instances listed as separate devices.",
+  "verify": [
+   "Comparison table with measured interference"
+  ],
+  "broke": [
+   {
+    "symptom": "MIG enable says pending",
+    "fix": "Reset the GPU or reboot; no processes may use it"
+   }
+  ],
+  "commit": "k8s/gpu-sharing.md",
+  "cleanup": "destroy / release",
+  "interview": "Hard isolation for a tenant on one GPU: MIG - dedicated memory slices and SMs with fault isolation. Time-slicing and MPS share memory and can interfere, fine for dev or small inference."
+ },
+ {
+  "id": "H3",
+  "level": "Intermediate",
+  "title": "Network Operator and RDMA in pods",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0 (hardware optional)",
+  "goal": "Understand how pods get RDMA NICs: Network Operator, Multus, SR-IOV/shared device plugins.",
+  "before": "H1, E1",
+  "steps": [
+   {
+    "text": "Render the chart and read what it would create.",
+    "code": "helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update\nhelm template netop nvidia/network-operator -n network-operator > netop.yaml\ngrep '^kind:' netop.yaml | sort | uniq -c"
+   },
+   {
+    "text": "Read the NicClusterPolicy CR and examples in Mellanox/network-operator; map: OFED driver container, RDMA shared device plugin, SR-IOV device plugin, Multus, IPAM, secondary networks.",
+    "code": null
+   },
+   {
+    "text": "Write an example pod spec requesting an RDMA resource and a secondary network annotation (from the docs).",
+    "code": null
+   },
+   {
+    "text": "Troubleshooting tree: resource not advertised -> pod pending -> wrong GID/IP -> low bandwidth.",
+    "code": null
+   }
+  ],
+  "expect": "Annotated manifests + troubleshooting tree. If you get a ConnectX node, run ib_write_bw between two pods.",
+  "verify": [
+   "Tree + manifests committed"
+  ],
+  "broke": [],
+  "commit": "k8s/network-operator/",
+  "cleanup": "-",
+  "interview": "The Network Operator installs the NIC driver, a device plugin that advertises RDMA resources (shared or SR-IOV VFs), and Multus for a secondary network; the pod requests the RDMA resource and attaches the secondary interface, so NCCL can use RDMA from inside the pod."
+ },
+ {
+  "id": "H4",
+  "level": "Intermediate",
+  "title": "Gang scheduling, quota and topology on fake nodes",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0",
+  "goal": "Practice multi-tenant GPU scheduling (quota, borrowing, all-or-nothing start) with 100 fake GPU nodes on a laptop.",
+  "before": "S3",
+  "steps": [
+   {
+    "text": "kind cluster + KWOK (fake nodes). Use the latest release tag from the KWOK GitHub page.",
+    "code": "kind create cluster --name sched\nKWOK=v0.6.1   # check latest\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/kwok.yaml\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/stage-fast.yaml"
+   },
+   {
+    "text": "Create 16 fake 8-GPU nodes in 2 racks.",
+    "code": "for i in $(seq 1 16); do rack=$(( (i-1)/8 )); cat <<EOF | kubectl apply -f -\napiVersion: v1\nkind: Node\nmetadata:\n  name: gpu-$i\n  annotations: { kwok.x-k8s.io/node: fake }\n  labels: { type: kwok, topology.kubernetes.io/zone: rack-$rack, nvidia.com/gpu.product: H100 }\nspec:\n  taints: [{ key: kwok.x-k8s.io/node, value: fake, effect: NoSchedule }]\nstatus:\n  allocatable: { cpu: \"96\", memory: 1Ti, pods: \"110\", nvidia.com/gpu: \"8\" }\n  capacity:    { cpu: \"96\", memory: 1Ti, pods: \"110\", nvidia.com/gpu: \"8\" }\nEOF\ndone\nkubectl get nodes"
+   },
+   {
+    "text": "Install Kueue (latest release manifest) and define two teams with GPU quota and borrowing.",
+    "code": "kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/<vX.Y.Z>/manifests.yaml\ncat > kueue.yaml <<'EOF'\napiVersion: kueue.x-k8s.io/v1beta1\nkind: ResourceFlavor\nmetadata: { name: h100 }\nspec: { nodeLabels: { nvidia.com/gpu.product: H100 }, tolerations: [{ key: kwok.x-k8s.io/node, operator: Exists, effect: NoSchedule }] }\n---\napiVersion: kueue.x-k8s.io/v1beta1\nkind: ClusterQueue\nmetadata: { name: team-a }\nspec:\n  cohort: lab\n  namespaceSelector: {}\n  resourceGroups:\n  - coveredResources: [cpu, memory, nvidia.com/gpu]\n    flavors:\n    - name: h100\n      resources:\n      - { name: cpu, nominalQuota: 1000 }\n      - { name: memory, nominalQuota: 10Ti }\n      - { name: nvidia.com/gpu, nominalQuota: 64, borrowingLimit: 32 }\n---\napiVersion: kueue.x-k8s.io/v1beta1\nkind: LocalQueue\nmetadata: { name: team-a, namespace: default }\nspec: { clusterQueue: team-a }\nEOF\nkubectl apply -f kueue.yaml   # copy the ClusterQueue as team-b too"
+   },
+   {
+    "text": "Submit a 4-pod job that needs 4x8 GPUs and must start together (Kueue admits the whole workload or nothing). Then submit more than the quota and watch queueing/preemption.",
+    "code": "cat > job.yaml <<'EOF'\napiVersion: batch/v1\nkind: Job\nmetadata: { name: train-32gpu, labels: { kueue.x-k8s.io/queue-name: team-a } }\nspec:\n  parallelism: 4\n  completions: 4\n  suspend: true\n  template:\n    spec:\n      restartPolicy: Never\n      tolerations: [{ key: kwok.x-k8s.io/node, operator: Exists, effect: NoSchedule }]\n      containers:\n      - name: w\n        image: busybox\n        command: [sleep, \"300\"]\n        resources: { requests: { nvidia.com/gpu: 8, cpu: 1, memory: 1Gi }, limits: { nvidia.com/gpu: 8 } }\nEOF\nkubectl apply -f job.yaml\nkubectl get workloads; kubectl get pods -o wide"
+   },
+   {
+    "text": "Repeat with KAI Scheduler or Volcano and compare; read JobSet and LeaderWorkerSet; use kube-scheduler-simulator to inspect a decision (gpu.html H4).",
+    "code": null
+   }
+  ],
+  "expect": "Workload admitted only when 32 GPUs are free; pods land on fake nodes; extra jobs wait in queue; borrowing lets team-a use team-b's idle quota.",
+  "verify": [
+   "Manifests committed",
+   "Screen capture of queueing / gang start",
+   "Comparison table"
+  ],
+  "broke": [
+   {
+    "symptom": "Pods Pending: untolerated taint",
+    "fix": "Add the kwok toleration to pod spec and ResourceFlavor"
+   },
+   {
+    "symptom": "Workload not created",
+    "fix": "Job needs the queue-name label and Kueue's webhook must be running"
+   }
+  ],
+  "commit": "k8s/scheduling/{nodes.sh,kueue.yaml,job.yaml,README.md}",
+  "cleanup": "kind delete cluster --name sched",
+  "interview": "Quota per team with ClusterQueues and a cohort for borrowing; all-or-nothing admission (gang) so partial jobs don't hold GPUs and deadlock; topology labels so gangs land in one rack or NVLink domain."
+ },
+ {
+  "id": "H5",
+  "level": "Intermediate",
+  "title": "Dynamic Resource Allocation (DRA)",
+  "env": "L",
+  "hours": 8,
+  "cost": "$0",
+  "goal": "DRA is the new Kubernetes model for devices: claims with attributes instead of a simple count. Learn it with the example driver.",
+  "before": "H4",
+  "steps": [
+   {
+    "text": "Read the Kubernetes DRA page: DeviceClass, ResourceClaim, ResourceClaimTemplate, ResourceSlice (gpu.html H5).",
+    "code": null
+   },
+   {
+    "text": "Run the example driver demo - it creates a kind cluster with DRA enabled and installs the driver (follow its README scripts).",
+    "code": "git clone https://github.com/kubernetes-sigs/dra-example-driver && cd dra-example-driver\nls demo/   # e.g. create-cluster.sh, then helm install per README\nkubectl get resourceslices -o yaml | head -60\nkubectl get deviceclasses"
+   },
+   {
+    "text": "Apply one of the demo pod specs that claims a fake GPU; inspect the claim and what the container sees.",
+    "code": "kubectl apply -f demo/<gpu-test1>.yaml\nkubectl get resourceclaims -A\nkubectl logs -n <ns> <pod>"
+   },
+   {
+    "text": "Read NVIDIA's k8s-dra-driver-gpu README (MIG, multi-node NVLink/IMEX). Write: device plugin (count) vs DRA (attributes, sharing, selection by CEL).",
+    "code": null
+   }
+  ],
+  "expect": "ResourceSlices advertise fake GPUs; the pod gets a claim allocated and its logs show the injected device env.",
+  "verify": [
+   "Write-up + working claim manifest"
+  ],
+  "broke": [
+   {
+    "symptom": "Feature gates",
+    "fix": "Use the repo's cluster script - it sets the right Kubernetes version and gates"
+   }
+  ],
+  "commit": "k8s/dra/README.md",
+  "cleanup": "kind delete cluster",
+  "interview": "Device plugins only say 'N GPUs'. DRA publishes device attributes and lets a claim select with CEL (model, memory, NVLink domain), share devices and allocate groups - which matters for NVLink-connected GPUs across nodes."
+ },
+ {
+  "id": "I1",
+  "level": "Intermediate",
+  "title": "Decode GPU instances and fabrics across clouds",
+  "env": "L",
+  "hours": 8,
+  "cost": "$0",
+  "goal": "Be the person who knows what each cloud really gives you per GPU instance.",
+  "before": "-",
+  "steps": [
+   {
+    "text": "Build the matrix (one row per instance family): cloud, instance, GPU model x count, NVLink domain, NICs x speed, fabric (IB / RoCE / EFA / proprietary), scheduler offerings (managed Slurm/K8s), health tooling. Cite every cell; mark unknowns.",
+    "code": null
+   },
+   {
+    "text": "Cover: AWS P5/P5e/P6, G6e; Azure ND H100 v5 / ND GB200; GCP A3/A3 Ultra/A4; OCI BM.GPU.H100; two GPU clouds (CoreWeave, Nebius or Lambda).",
+    "code": null
+   },
+   {
+    "text": "Read Azure azurehpc-health-checks and Google gpu-recipes to see how each validates nodes.",
+    "code": "git clone https://github.com/Azure/azurehpc-health-checks && less azurehpc-health-checks/README.md"
+   },
+   {
+    "text": "One page: 'what's different and why it matters for NCCL' (plugins, NIC count per GPU, rail design, topology info APIs).",
+    "code": null
+   }
+  ],
+  "expect": "Cited matrix + summary page.",
+  "verify": [
+   "Every cell has a source"
+  ],
+  "broke": [],
+  "commit": "cloud/gpu-instance-matrix.md",
+  "cleanup": "-",
+  "interview": "Same GPU, different all-reduce: NIC count and speed per GPU, fabric type and NCCL plugin, rail-optimized vs not, placement (same spine or not), and tuning defaults."
+ },
+ {
+  "id": "J1",
+  "level": "Intermediate",
+  "title": "GPU metrics pipeline end to end",
+  "env": "G1",
+  "hours": 8,
+  "cost": "~$2",
+  "goal": "dcgm-exporter -> Prometheus -> Grafana -> alerts. The observability stack every GPU platform runs.",
+  "before": "B2",
+  "steps": [
+   {
+    "text": "On the GPU instance, run dcgm-exporter (pick a current tag from NGC nvcr.io/nvidia/k8s/dcgm-exporter).",
+    "code": "docker run -d --name dcgm --gpus all --cap-add SYS_ADMIN -p 9400:9400 nvcr.io/nvidia/k8s/dcgm-exporter:<tag>\ncurl -s localhost:9400/metrics | grep -E '^DCGM_FI_DEV_(GPU_UTIL|GPU_TEMP|POWER_USAGE|FB_USED|XID_ERRORS)' | head"
+   },
+   {
+    "text": "Prometheus + Grafana with docker compose on the same box.",
+    "code": "mkdir ~/mon && cd ~/mon\ncat > prometheus.yml <<'EOF'\nglobal: { scrape_interval: 15s }\nrule_files: [alerts.yml]\nscrape_configs:\n- job_name: dcgm\n  static_configs: [{ targets: ['host.docker.internal:9400'] }]\nEOF\ncat > alerts.yml <<'EOF'\ngroups:\n- name: gpu\n  rules:\n  - alert: GpuXidError\n    expr: DCGM_FI_DEV_XID_ERRORS > 0\n    for: 1m\n    labels: { severity: critical }\n  - alert: GpuHot\n    expr: DCGM_FI_DEV_GPU_TEMP > 85\n    for: 5m\n  - alert: GpuMissing\n    expr: count by (Hostname) (DCGM_FI_DEV_GPU_TEMP) < 1   # set to expected GPUs per node\n    for: 5m\nEOF\ncat > compose.yml <<'EOF'\nservices:\n  prometheus:\n    image: prom/prometheus\n    volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml, ./alerts.yml:/etc/prometheus/alerts.yml]\n    ports: ['9090:9090']\n    extra_hosts: ['host.docker.internal:host-gateway']\n  grafana:\n    image: grafana/grafana\n    ports: ['3000:3000']\nEOF\ndocker compose up -d"
+   },
+   {
+    "text": "View from your laptop through SSM port forwarding.",
+    "code": "aws ssm start-session --target <id> --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'\n# browse http://localhost:3000 (admin/admin), add Prometheus datasource http://prometheus:9090, import dashboard ID 12239 (NVIDIA DCGM Exporter)"
+   },
+   {
+    "text": "Generate load (gpu_burn from B3) and watch the panels; check the alerts page in Prometheus (:9090/alerts).",
+    "code": null
+   },
+   {
+    "text": "Compare nvtop / nvitop / gpustat for the on-box view. Read how dcgm-exporter maps metrics to Slurm jobs (job-mapping option).",
+    "code": null
+   }
+  ],
+  "expect": "Grafana shows utilization, temp, power, memory per GPU; GpuHot fires if you push temps (or lower the threshold to test).",
+  "verify": [
+   "Dashboard JSON + alerts.yml committed",
+   "Screenshot under load"
+  ],
+  "broke": [
+   {
+    "symptom": "Prometheus target down",
+    "fix": "host.docker.internal mapping or dcgm container not running; check :9090/targets"
+   },
+   {
+    "symptom": "No XID metric",
+    "fix": "Field set in dcgm-exporter's default CSV - check the counters file in its repo"
+   }
+  ],
+  "commit": "observability/{prometheus.yml,alerts.yml,compose.yml,dashboard.json}",
+  "cleanup": "terraform destroy",
+  "interview": "I alert on XID errors, uncorrectable ECC / row-remap failures, missing GPUs, thermal/power throttling and NVLink errors - utilization alone tells you nothing about health."
+ },
+ {
+  "id": "K2",
+  "level": "Intermediate",
+  "title": "Parallelism and MFU on real hardware",
+  "env": "G4",
+  "hours": 12,
+  "cost": "~$5-15",
+  "goal": "Run a real training recipe, compute MFU, and connect it to the NCCL numbers you measured.",
+  "before": "F1, K1",
+  "steps": [
+   {
+    "text": "torchtitan on the 4-GPU node (follow its README for install and the debug/small Llama config).",
+    "code": "git clone https://github.com/pytorch/torchtitan && cd torchtitan\npip install -r requirements.txt\n# README: download tokenizer, then\nNGPU=4 CONFIG_FILE=./torchtitan/models/llama3/train_configs/debug_model.toml ./run_train.sh   # path per README"
+   },
+   {
+    "text": "Note tokens/s and the MFU it logs (or compute: MFU = 6 x params x tokens/s / (GPUs x peak FLOP/s)). T4 peak FP16 ~65 TFLOPS, A10G ~125 (spec sheets).",
+    "code": null
+   },
+   {
+    "text": "Change parallelism: FSDP only vs FSDP + tensor parallel (config flags in torchtitan), record tokens/s each.",
+    "code": null
+   },
+   {
+    "text": "Overlay your F1 busbw: explain why TP on PCIe-only GPUs hurts.",
+    "code": null
+   },
+   {
+    "text": "Optional: LambdaLabsML distributed-training-guide chapters 1-4 on the same box.",
+    "code": null
+   }
+  ],
+  "expect": "A table: config, tokens/s, MFU. On PCIe GPUs, TP across GPUs is slower than FSDP - the interconnect explains it.",
+  "verify": [
+   "Table + interpretation"
+  ],
+  "broke": [
+   {
+    "symptom": "OOM",
+    "fix": "Reduce batch size/seq len in the toml; use the debug model"
+   }
+  ],
+  "commit": "llm/mfu/README.md",
+  "cleanup": "terraform destroy",
+  "interview": "MFU 25%: check data loading/CPU stalls, communication not overlapped (busbw vs needed), wrong parallelism for the interconnect (TP over PCIe), small micro-batches, and kernels not using tensor cores (precision)."
+ },
+ {
+  "id": "K3",
+  "level": "Intermediate",
+  "title": "Checkpointing and failure recovery math",
+  "env": "G4",
+  "hours": 8,
+  "cost": "~$3-6",
+  "goal": "Know how often large jobs fail and how often they should checkpoint.",
+  "before": "F3",
+  "steps": [
+   {
+    "text": "Young/Daly optimal interval: T = sqrt(2 x C x MTBF). Example: checkpoint cost C = 60 s, job MTBF = 3 h -> sqrt(2 x 60 x 10800) = 1138 s, about 19 minutes.",
+    "code": "python3 -c \"import math; C=60; M=3*3600; print(math.sqrt(2*C*M)/60, 'min')\""
+   },
+   {
+    "text": "Job MTBF shrinks with size: if one node fails every N hours, a job on K nodes fails roughly every N/K hours. Do the math for 512 nodes using interruption rates reported in the Llama 3 paper and the reliability paper (gpu.html K3).",
+    "code": null
+   },
+   {
+    "text": "Hands-on: add torch.distributed.checkpoint (or nvidia-resiliency-ext async checkpointing) to a small training loop, kill a rank, restart from the last checkpoint and measure time to resume.",
+    "code": null
+   }
+  ],
+  "expect": "Interval calculation table + measured resume time.",
+  "verify": [
+   "Calculation sheet"
+  ],
+  "broke": [],
+  "commit": "llm/checkpointing.md",
+  "cleanup": "terraform destroy",
+  "interview": "Checkpoint interval comes from checkpoint cost and job MTBF (Young/Daly). A 4,096-GPU job has a short MTBF, so I want async/local checkpoints that cost seconds, which lets me checkpoint every few minutes."
+ },
+ {
+  "id": "K4",
+  "level": "Intermediate",
+  "title": "Know the workload: serving side, kept short",
+  "env": "G1",
+  "hours": 8,
+  "cost": "~$2-3 (g5.xlarge)",
+  "goal": "Customers ask about inference. Serve a model with vLLM, measure TTFT/ITL/throughput, connect it to infra needs.",
+  "before": "K1",
+  "steps": [
+   {
+    "text": "g5.xlarge (A10G 24 GB). Install and serve a small model.",
+    "code": "python3 -m venv ~/vl && . ~/vl/bin/activate && pip install vllm\nvllm serve Qwen/Qwen2.5-1.5B-Instruct --max-model-len 4096 &\ncurl -s localhost:8000/v1/models | jq .\ncurl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \\\n  -d '{\"model\":\"Qwen/Qwen2.5-1.5B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi\"}]}' | jq .choices[0].message.content"
+   },
+   {
+    "text": "Benchmark (check --help of your version for flags).",
+    "code": "vllm bench serve --help | head -40\n# or AIPerf: pip install aiperf && aiperf profile --help"
+   },
+   {
+    "text": "Read the startup log: how much memory went to KV cache, max concurrent sequences. Check it with your K1 formula.",
+    "code": null
+   },
+   {
+    "text": "Read Dynamo + llm-d docs: prefill/decode disaggregation and NIXL KV transfer. Write the infra checks you'd run before a customer tries it (fabric bandwidth between pools, GPUDirect, topology).",
+    "code": null
+   }
+  ],
+  "expect": "TTFT, inter-token latency and tokens/s at a few concurrency levels.",
+  "verify": [
+   "Numbers + pre-deployment checklist"
+  ],
+  "broke": [
+   {
+    "symptom": "CUDA OOM at start",
+    "fix": "--gpu-memory-utilization 0.85 or a smaller --max-model-len"
+   }
+  ],
+  "commit": "llm/serving.md",
+  "cleanup": "terraform destroy",
+  "interview": "Disaggregated serving moves KV cache from prefill to decode GPUs, so the customer needs a high-bandwidth RDMA path between those pools (NIXL over IB/RoCE/EFA), sensible topology placement and enough HBM for the KV working set."
+ },
+ {
+  "id": "B5",
+  "level": "Senior",
+  "title": "Write the cluster acceptance runbook",
+  "env": "G2N",
+  "hours": 16,
+  "cost": "~$10-20 (reuse E2/F2 session)",
+  "goal": "The document a customer signs before taking a GPU cluster: stages, thresholds, evidence, go/no-go. Your strongest interview artifact.",
+  "before": "B2, B3, F1, F2, J1",
+  "steps": [
+   {
+    "text": "Define the stages in order: inventory -> DCGM r3 -> burn-in -> single-node NCCL -> nvbandwidth -> RDMA/EFA perftest -> multi-node all-reduce scaling -> storage fio -> reference training run -> telemetry check.",
+    "code": null
+   },
+   {
+    "text": "Put every threshold in one criteria file, with a justification line each.",
+    "code": "cat > ~/gpu-lab/capstone/criteria.toml <<'EOF'\n[inventory]\ngpus_per_node = 4                 # g4dn.12xlarge; 8 on HGX\ndriver = \"<expected version>\"\n[dcgm]\nlevel = 3\nallow_fail = []\n[burnin]\nminutes = 30\nmax_temp_c = 85\nmax_uncorrected_ecc = 0\nclock_band_pct = 5                # SM clock within 5% of node median\n[nccl_single_node]\nmin_busbw_gbps_at_1g = 0          # set from your F1 baseline\n[nccl_multi_node]\nfraction_of_theoretical = 0.92   # Together AI guide's bar; justify yours\ntheoretical_gbps = 0             # fill from fabric spec\n[storage]\nmin_seq_read_gbps = 0\n[go_no_go]\nrequire_all = true\nEOF"
+   },
+   {
+    "text": "Scale tests as groups: single node -> pairs -> rack -> full cluster, so a failure points at a node, leaf or spine.",
+    "code": null
+   },
+   {
+    "text": "Write a runner (bash or Python) that executes each stage, saves raw output under reports/<date>/ and compares to criteria. Reuse your scripts: triage.sh, dcgm_report.py, gpu-burn logging, nccl-tests, pcie_check.sh.",
+    "code": "mkdir -p ~/gpu-lab/capstone/{stages,reports}\n# stages/10_inventory.sh 20_dcgm.sh 30_burnin.sh 40_nccl_node.sh 50_rdma.sh 60_nccl_multi.sh 70_storage.sh\n# run_acceptance.py reads criteria.toml, runs stages, writes reports/<date>/summary.md with PASS/FAIL per stage"
+   },
+   {
+    "text": "Optional: run NVIDIA's Cluster Readiness Engine on a K8s cluster and compare its report with yours.",
+    "code": null
+   },
+   {
+    "text": "Produce a sample report: pass/fail table, defect log (owner, disposition), go/no-go line.",
+    "code": null
+   }
+  ],
+  "expect": "One command produces a dated report folder with raw outputs and a summary with a clear go/no-go.",
+  "verify": [
+   "Runbook, criteria file, runner, sample report committed",
+   "Every threshold has a 'why'"
+  ],
+  "broke": [
+   {
+    "symptom": "Thresholds feel arbitrary",
+    "fix": "Base them on your measured baseline + vendor spec + public guides; say so in the file"
+   }
+  ],
+  "commit": "capstone/{criteria.toml,run_acceptance.py,stages/,reports/sample/}, capstone/RUNBOOK.md",
+  "cleanup": "terraform destroy",
+  "interview": "New 256-GPU cluster: inventory and firmware/driver baseline, DCGM r3 and burn-in per node, single-node NCCL over NVLink, NIC/RDMA tests, then all-reduce at pair, rack and full scale against a threshold like ~92% of fabric bandwidth, storage and a reference training run - with a signed report and defect log."
+ },
+ {
+  "id": "C4",
+  "level": "Senior",
+  "title": "Golden BIOS and firmware baseline",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0",
+  "goal": "Detect configuration drift across thousands of servers using Redfish.",
+  "before": "D1",
+  "steps": [
+   {
+    "text": "Start the Redfish mockup (D1). Pull BIOS attributes and firmware inventory.",
+    "code": "SYS=$(curl -s localhost:8000/redfish/v1/Systems | jq -r '.Members[0].\"@odata.id\"')\ncurl -s localhost:8000$SYS/Bios | jq .Attributes > node1-bios.json\ncurl -s localhost:8000/redfish/v1/UpdateService/FirmwareInventory | jq ."
+   },
+   {
+    "text": "Write golden.json for GPU nodes: IOMMU/VT-d setting, SR-IOV, NUMA per socket, C-states, power profile, above-4G decoding / large BAR. Record that attribute names differ by vendor (keep a mapping table).",
+    "code": null
+   },
+   {
+    "text": "bios_drift.py: compare each node's attributes to golden, print drift; add firmware versions and flag mixed versions in a 'rack'. Simulate 5 nodes by copying node1-bios.json and editing values.",
+    "code": "cat > ~/gpu-lab/bmc/bios_drift.py <<'EOF'\n#!/usr/bin/env python3\nimport json, sys\ngolden = json.load(open(sys.argv[1]))\nfor f in sys.argv[2:]:\n    a = json.load(open(f)); bad = {k: (a.get(k), v) for k, v in golden.items() if a.get(k) != v}\n    print(f\"{f}: {'OK' if not bad else 'DRIFT'}\")\n    for k, (have, want) in bad.items(): print(f\"   {k}: have={have} want={want}\")\nEOF\npython3 ~/gpu-lab/bmc/bios_drift.py golden.json node*-bios.json"
+   },
+   {
+    "text": "Remediation design: PATCH /Bios/Settings then reboot in a maintenance window, staged by rack. Read DMTF Redfish-Tacklebox and Dell iDRAC scripts for real examples.",
+    "code": null
+   }
+  ],
+  "expect": "Drift report listing each off-baseline attribute per node.",
+  "verify": [
+   "Golden file + drift tool + sample report"
+  ],
+  "broke": [
+   {
+    "symptom": "Mockup has no Bios",
+    "fix": "Use another mockup from the DSP2043 bundle that includes Bios"
+   }
+  ],
+  "commit": "bmc/{golden.json,bios_drift.py,drift-report.txt}",
+  "cleanup": "docker rm -f rf",
+  "interview": "Pull BIOS attributes and firmware inventory over Redfish from every BMC, diff against a golden per platform, alert on drift, and remediate with Redfish Bios/Settings in rolling maintenance windows - gated by validation after reboot."
+ },
+ {
+  "id": "D3",
+  "level": "Senior",
+  "title": "Fleet out-of-band monitoring",
+  "env": "L",
+  "hours": 12,
+  "cost": "$0",
+  "goal": "Monitor BMC health (temps, fans, PSUs, SEL) across a fleet, and separate cooling problems from workload problems.",
+  "before": "D1, J1",
+  "steps": [
+   {
+    "text": "Run 3 mockup containers on ports 8001-8003 to pretend you have 3 servers.",
+    "code": "for p in 8001 8002 8003; do docker run -d --name rf$p -p $p:8000 dmtf/redfish-mockup-server:latest; done"
+   },
+   {
+    "text": "Run a Redfish exporter (jenningsloy318/redfish_exporter - build/run per README) pointing at the 3 mockups; scrape with Prometheus (reuse J1 compose locally).",
+    "code": null
+   },
+   {
+    "text": "Grafana panels: inlet temp, fan speed, PSU redundancy, SEL critical entries. Alert rules: PSU redundancy lost, inlet temp rising across a rack.",
+    "code": null
+   },
+   {
+    "text": "Emit one diagnostic result in OCP diagnostic format with ocp-diag-core-python (README example).",
+    "code": "pip install ocptv   # package name per the repo README"
+   },
+   {
+    "text": "Write how you'd join BMC inlet temps with DCGM GPU temps to separate cooling from workload.",
+    "code": null
+   }
+  ],
+  "expect": "Dashboard showing 3 'servers', alert rules, an OCP-format JSON result.",
+  "verify": [
+   "Dashboard JSON, alerts, OCP output committed"
+  ],
+  "broke": [],
+  "commit": "observability/oob/",
+  "cleanup": "docker rm -f rf8001 rf8002 rf8003",
+  "interview": "Rack 14 hot GPUs: compare BMC inlet temps and fan speeds across the rack with GPU temps and power from DCGM. Inlet high for all nodes = cooling; inlet normal but GPU hot at the same power = that GPU/heatsink; high power = workload."
+ },
+ {
+  "id": "E4",
+  "level": "Senior",
+  "title": "Design a 512-GPU fabric on paper",
+  "env": "L",
+  "hours": 12,
+  "cost": "$0",
+  "goal": "Design the network for 64 nodes x 8 GPUs: rail-optimized leaf-spine, cable counts, oversubscription, congestion control.",
+  "before": "E1, F2",
+  "steps": [
+   {
+    "text": "Assumptions: 64 nodes, 8 GPUs and 8 x 400G NICs each (one NIC per GPU), switch radix 64 ports of 400G. Write them down first.",
+    "code": null
+   },
+   {
+    "text": "Rail-optimized: NIC k of every node goes to leaf group 'rail k'. 64 nodes x 8 NICs = 512 endpoints. With 64-port leaves at 1:1, each leaf uses 32 down + 32 up -> 16 leaves; spine ports needed = 16 x 32 = 512 -> 8 spines of 64 ports. Recompute for 2:1.",
+    "code": null
+   },
+   {
+    "text": "Bill of materials: leaves, spines, NIC-leaf cables (512), leaf-spine cables, optics. Compare with the DGX SuperPOD reference architecture (scalable units of 32 nodes) and explain differences.",
+    "code": null
+   },
+   {
+    "text": "Congestion control: InfiniBand credit-based flow control vs RoCE with PFC + ECN + DCQCN; where each is configured; risks (PFC storms, head-of-line blocking).",
+    "code": null
+   },
+   {
+    "text": "How topology reaches schedulers: NVIDIA Topograph -> Slurm topology.conf / Kubernetes labels, so jobs land in the same leaf/rail domain.",
+    "code": null
+   }
+  ],
+  "expect": "3-page design doc with diagrams and BOM table.",
+  "verify": [
+   "Numbers add up",
+   "You can redraw it in 5 minutes"
+  ],
+  "broke": [],
+  "commit": "rdma/fabric-512-design.md",
+  "cleanup": "-",
+  "interview": "Rail-optimized means GPU k on every node talks through rail k, so the same-rank traffic of all-reduce stays one hop on a leaf; cross-rail traffic goes over NVLink inside the node. Fewer hops, less congestion, predictable bandwidth."
+ },
+ {
+  "id": "F4",
+  "level": "Senior",
+  "title": "Find the bad node by bisection",
+  "env": "L",
+  "hours": 12,
+  "cost": "$0 (simulation) + optional G2N",
+  "goal": "Find one slow node among hundreds without testing every pair. Build it as a simulation first, then run it for real under Slurm.",
+  "before": "F2, G1",
+  "steps": [
+   {
+    "text": "Simulation on your laptop: a fake 'run_allreduce(nodes)' returns low busbw if a planted bad node is in the group.",
+    "code": "cat > ~/gpu-lab/nccl/bisect_nodes.py <<'EOF'\n#!/usr/bin/env python3\n\"\"\"Group-testing bisection to find slow nodes. Replace run_allreduce() with a real Slurm/nccl-tests call.\"\"\"\nimport random\nNODES = [f\"node{i:03d}\" for i in range(200)]\nBAD = set(random.sample(NODES, 1))\nTESTS = 0\ndef run_allreduce(group):          # returns busbw GB/s\n    global TESTS; TESTS += 1\n    return 40.0 if BAD & set(group) else 90.0\ndef bisect(group, thresh=80, min_size=2):\n    if run_allreduce(group) >= thresh: return []\n    if len(group) <= min_size: return group\n    mid = len(group)//2\n    return bisect(group[:mid], thresh, min_size) + bisect(group[mid:], thresh, min_size)\nsuspects = bisect(NODES)\nprint('planted:', BAD, 'suspects:', suspects, 'tests run:', TESTS)\nEOF\npython3 ~/gpu-lab/nccl/bisect_nodes.py"
+   },
+   {
+    "text": "Note the subtlety: a group of 1 can't run all-reduce - pair a suspect with a known-good node to confirm. Extend the script to do that.",
+    "code": null
+   },
+   {
+    "text": "Real version: run_allreduce() submits `srun -N <len> --nodelist=<group> all_reduce_perf ...`, parses busbw, and also greps each node's dmesg for XIDs. Use the Slurm cluster from G3 or the 2-node pair.",
+    "code": null
+   },
+   {
+    "text": "Add a Slurm hook: flagged node -> scontrol update nodename=X state=drain reason='bisect-slow'.",
+    "code": null
+   },
+   {
+    "text": "Compare with NVCRE's Diagnose mode (adaptive fault isolation).",
+    "code": null
+   }
+  ],
+  "expect": "Finds the planted node in ~log2(200) x 2 tests (~15-20) instead of 200 pairs.",
+  "verify": [
+   "Simulation with planted node",
+   "Confirm-with-good-node step"
+  ],
+  "broke": [],
+  "commit": "nccl/bisect_nodes.py, notes/F4.md",
+  "cleanup": "-",
+  "interview": "One slow node in 200: split into groups, run all-reduce per group, recurse into groups below threshold, confirm suspects paired with known-good nodes - about log2(N) rounds instead of N-squared pairs, then drain the node and check its XIDs, NIC counters and PCIe."
+ },
+ {
+  "id": "G4",
+  "level": "Senior",
+  "title": "Slurm on Kubernetes decision memo (Slinky, Soperator, Kueue)",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0",
+  "goal": "Customers ask 'Slurm or Kubernetes?'. Try Slinky on kind and write a decision memo.",
+  "before": "G1, H4",
+  "steps": [
+   {
+    "text": "Stand up Slinky's slurm-operator on kind following its README (Helm charts).",
+    "code": "kind create cluster --name slinky\ngit clone https://github.com/SlinkyProject/slurm-operator && less slurm-operator/README.md\n# helm install per README, then: kubectl get pods -A | grep -i slurm"
+   },
+   {
+    "text": "Submit a job through the Slurm login pod; read what slurm-bridge changes about scheduling.",
+    "code": null
+   },
+   {
+    "text": "Read Soperator design + Nebius NCCL example; read Kueue; add Topograph to the picture.",
+    "code": null
+   },
+   {
+    "text": "Decision matrix: bare-metal Slurm, Slinky, Soperator, plain K8s + Kueue. Criteria: tenancy, gang scheduling, topology awareness, ops burden, user experience, migration cost. Recommend for 2 archetypes: (a) research lab with Slurm users, (b) product company running inference + training on K8s.",
+    "code": null
+   }
+  ],
+  "expect": "Slurm pods running in kind; 2-page memo.",
+  "verify": [
+   "Memo committed"
+  ],
+  "broke": [],
+  "commit": "slurm/slurm-vs-k8s-memo.md",
+  "cleanup": "kind delete cluster --name slinky",
+  "interview": "Researchers who live in sbatch: keep Slurm, maybe run it on K8s (Slinky/Soperator) to share infra. Platform teams serving and training on one fleet: K8s with Kueue/KAI for quota and gang scheduling. Topology awareness is required either way."
+ },
+ {
+  "id": "H6",
+  "level": "Senior",
+  "title": "Node health automation: cordon, drain, reset, reboot",
+  "env": "G1",
+  "hours": 12,
+  "cost": "~$3",
+  "goal": "Automatic detection-to-remediation for GPU faults on Kubernetes, without draining the whole cluster by mistake.",
+  "before": "B1, H1, B4",
+  "steps": [
+   {
+    "text": "Install node-problem-detector on the k3s GPU node with a custom log-monitor rule matching XIDs (pattern from your B1 regex).",
+    "code": "# custom NPD config snippet (kernel log monitor)\n{\n  \"source\": \"kernel-monitor\",\n  \"conditions\": [{\"type\": \"GPUXidCritical\", \"reason\": \"NoXid\", \"message\": \"no critical XID\"}],\n  \"rules\": [{\"type\": \"permanent\", \"condition\": \"GPUXidCritical\", \"reason\": \"Xid79\", \"pattern\": \"NVRM: Xid \\\\(PCI:[0-9a-fA-F:.]+\\\\): 79,.*\"}]\n}"
+   },
+   {
+    "text": "Inject a test line and watch the node condition flip.",
+    "code": "logger -p kern.err 'NVRM: Xid (PCI:0000:00:1e): 79, pid=0, test injected'\nkubectl describe node | grep -A2 GPUXidCritical"
+   },
+   {
+    "text": "Add remediation: medik8s Node Healthcheck operator (or NVSentinel) to cordon/drain on that condition. Configure maxUnhealthy / circuit breaker (e.g. stop if >20% unhealthy).",
+    "code": null
+   },
+   {
+    "text": "Write the decision table: reset GPU vs reboot node vs RMA; measure fault -> back-in-service time.",
+    "code": null
+   }
+  ],
+  "expect": "Node condition GPUXidCritical=True after the injected line; node cordoned and drained by the remediator; remediation stops when you mark several nodes unhealthy (circuit breaker).",
+  "verify": [
+   "NPD config, remediation config, runbook with timings"
+  ],
+  "broke": [
+   {
+    "symptom": "NPD doesn't see the line",
+    "fix": "Check which log source NPD reads (journald vs /dev/kmsg) and that logger writes to the kernel facility it watches"
+   }
+  ],
+  "commit": "k8s/remediation/",
+  "cleanup": "terraform destroy",
+  "interview": "Detection (NPD/DCGM) sets node conditions; a remediator cordons, drains and resets or reboots; a circuit breaker (maxUnhealthy) stops automation during fleet-wide events so it can't take down the cluster."
+ },
+ {
+  "id": "H7",
+  "level": "Senior",
+  "title": "Write a small operator with Kubebuilder",
+  "env": "L",
+  "hours": 14,
+  "cost": "$0",
+  "goal": "Operators run all GPU infra on K8s (GPU Operator, Network Operator, Slinky). Build one: GPUNodeAudit runs a diagnostic Job per matching node.",
+  "before": "H4",
+  "steps": [
+   {
+    "text": "Install Go and kubebuilder (see the Kubebuilder book quick start).",
+    "code": "sudo snap install go --classic   # or download from go.dev\ncurl -L -o kubebuilder \"https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH)\" && chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/"
+   },
+   {
+    "text": "Scaffold.",
+    "code": "mkdir -p ~/gpu-lab/k8s/gpu-audit && cd ~/gpu-lab/k8s/gpu-audit\nkubebuilder init --domain lab.io --repo github.com/<you>/gpu-audit\nkubebuilder create api --group ops --version v1alpha1 --kind GPUNodeAudit --resource --controller"
+   },
+   {
+    "text": "Spec: nodeSelector, diagLevel. Status: per-node result, lastRun, conditions. Reconcile: list matching nodes, create one Job per node (nodeName set) running a diagnostic command, read Job status, write results to status. Make it idempotent (deterministic Job names, owner references).",
+    "code": null
+   },
+   {
+    "text": "Run against kind with KWOK fake nodes from H4 (Jobs run as busybox 'echo PASS').",
+    "code": "make install && make run\nkubectl apply -f config/samples/"
+   },
+   {
+    "text": "Add envtest unit tests (make test). Read gpu-operator's controllers and write 3 patterns you borrowed.",
+    "code": null
+   }
+  ],
+  "expect": "Applying a GPUNodeAudit creates one Job per matching node and the status shows per-node PASS.",
+  "verify": [
+   "make test passes",
+   "README explains the reconcile loop"
+  ],
+  "broke": [
+   {
+    "symptom": "CRD not found",
+    "fix": "make install before make run"
+   }
+  ],
+  "commit": "k8s/gpu-audit/ (full project)",
+  "cleanup": "kind delete cluster",
+  "interview": "A reconcile loop reads desired state (spec) and actual state, makes one step toward desired, writes status and requeues. Idempotent = deterministic names, create-if-absent, owner references, safe to run any number of times."
+ },
+ {
+  "id": "H8",
+  "level": "Senior",
+  "title": "Security policy pack for a GPU platform",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0",
+  "goal": "Admission policies, runtime detection and image scanning for a shared GPU cluster - your DevSecOps background applied to GPUs.",
+  "before": "H4",
+  "steps": [
+   {
+    "text": "Install Kyverno on kind.",
+    "code": "helm repo add kyverno https://kyverno.github.io/kyverno/ && helm install kyverno kyverno/kyverno -n kyverno --create-namespace"
+   },
+   {
+    "text": "Policy 1: pods requesting nvidia.com/gpu must set limits; Policy 2: no privileged pods outside gpu-operator ns; Policy 3: no hostPath to /dev.",
+    "code": "cat > require-gpu-limits.yaml <<'EOF'\napiVersion: kyverno.io/v1\nkind: ClusterPolicy\nmetadata: { name: require-gpu-limits }\nspec:\n  validationFailureAction: Enforce\n  rules:\n  - name: gpu-limits\n    match: { any: [ { resources: { kinds: [Pod] } } ] }\n    preconditions:\n      any:\n      - key: \"{{ request.object.spec.containers[].resources.requests.\\\"nvidia.com/gpu\\\" || '' }}\"\n        operator: NotEquals\n        value: \"\"\n    validate:\n      message: \"Pods requesting GPUs must set nvidia.com/gpu limits\"\n      pattern:\n        spec:\n          containers:\n          - resources: { limits: { nvidia.com/gpu: \"?*\" } }\nEOF\nkubectl apply -f require-gpu-limits.yaml\n# write the other two from Kyverno's policy library (disallow-privileged, disallow-host-path)"
+   },
+   {
+    "text": "Test with good and bad pods; write Kyverno CLI tests (kyverno test).",
+    "code": null
+   },
+   {
+    "text": "Falco rule idea: alert when an unexpected process opens /dev/nvidia*; Trivy scan of a CUDA base image with a severity gate.",
+    "code": "docker run --rm aquasec/trivy image --severity HIGH,CRITICAL nvcr.io/nvidia/cuda:12.4.1-base-ubuntu22.04"
+   },
+   {
+    "text": "Threat model page: multi-tenant GPU risks (privileged escape, device access, driver CVEs, memory remnants between tenants -> MIG / confidential computing via nvtrust).",
+    "code": null
+   }
+  ],
+  "expect": "Bad pods rejected with clear messages; Trivy report; threat model.",
+  "verify": [
+   "Policies + tests + threat model committed"
+  ],
+  "broke": [],
+  "commit": "k8s/security/",
+  "cleanup": "kind delete cluster",
+  "interview": "Stop privileged containers on GPU nodes with admission policy (Kyverno/Gatekeeper) allowing exceptions only for the operator namespace, plus runtime detection with Falco and image scanning in CI."
+ },
+ {
+  "id": "I2",
+  "level": "Senior",
+  "title": "Land 1,024 GPUs: capacity, placement and rollout plan",
+  "env": "L",
+  "hours": 10,
+  "cost": "$0",
+  "goal": "The SA job in one document: take a customer from 'we bought 1,024 GPUs' to production in waves.",
+  "before": "B5, H6, I1",
+  "steps": [
+   {
+    "text": "Phases: capacity & quota (reservations / capacity blocks), placement & failure domains, network, images & drivers, validation gates, rollout waves, rollback.",
+    "code": null
+   },
+   {
+    "text": "Cloud specifics from your AWS background: cluster placement groups, capacity reservations / capacity blocks, instance topology API, per-AZ limits, EFA.",
+    "code": null
+   },
+   {
+    "text": "Wave table: wave size, entry criteria, exit criteria (B5 acceptance + H6 automation green), owner, date.",
+    "code": null
+   },
+   {
+    "text": "Risks and the 3 decisions you need from executives (e.g. accept 2:1 oversubscription? spare pool size? go-live date vs acceptance bar).",
+    "code": null
+   }
+  ],
+  "expect": "5-page plan with a wave table and risk register.",
+  "verify": [
+   "Reviewed against B5 and H6"
+  ],
+  "broke": [],
+  "commit": "cloud/1024-gpu-rollout-plan.md",
+  "cleanup": "-",
+  "interview": "4 weeks to 1,024 GPUs: secure capacity and placement first, golden image and driver matrix, fabric validation, then waves of 128 -> 256 -> 640 GPUs each gated by acceptance tests and health automation, with a spare pool and daily exec status on risks and decisions."
+ },
+ {
+  "id": "I3",
+  "level": "Senior",
+  "title": "Storage for model load and checkpoints",
+  "env": "G4",
+  "hours": 12,
+  "cost": "~$5-10",
+  "goal": "Model load time and checkpoint stalls are infra problems. Measure storage tiers and recommend a design.",
+  "before": "K3",
+  "steps": [
+   {
+    "text": "fio matrix on local NVMe (g4dn has instance store), EBS gp3, and an S3 mount (Mountpoint for S3).",
+    "code": "sudo apt install -y fio\n# instance store: lsblk; sudo mkfs.xfs /dev/nvme1n1; sudo mount /dev/nvme1n1 /mnt/nvme\nfor rw in read write randread; do for bs in 4k 1M; do\n fio --name=$rw-$bs --rw=$rw --bs=$bs --size=4G --numjobs=4 --iodepth=32 --ioengine=libaio --direct=1 --runtime=30 --time_based --directory=/mnt/nvme --group_reporting | grep -E 'IOPS|BW'\ndone; done\n# Mountpoint: install per awslabs/mountpoint-s3 README, mount-s3 <bucket> /mnt/s3"
+   },
+   {
+    "text": "Time loading a model (e.g. a 7B safetensors checkpoint from Hugging Face) from each tier; try a streaming loader (CoreWeave tensorizer or Run:ai model streamer) if time.",
+    "code": null
+   },
+   {
+    "text": "Checkpoint math: size / write bandwidth = stall per checkpoint; combine with K3 interval.",
+    "code": null
+   },
+   {
+    "text": "Recommendation: object store as source of truth, local NVMe cache, parallel FS (FSx for Lustre) for shared high-throughput, async checkpoint to local then drain to object store.",
+    "code": null
+   }
+  ],
+  "expect": "Results table per tier + tiering recommendation.",
+  "verify": [
+   "Table + recommendation committed"
+  ],
+  "broke": [],
+  "commit": "cloud/storage-tiers.md",
+  "cleanup": "terraform destroy",
+  "interview": "70B model taking 12 min per scale-out: pre-stage weights on local NVMe or a node-local cache, stream with a parallel loader, use a parallel FS or high-throughput object access with many connections, and keep images slim so pull time doesn't add up."
+ },
+ {
+  "id": "J2",
+  "level": "Senior",
+  "title": "Fleet reliability analytics",
+  "env": "L",
+  "hours": 12,
+  "cost": "$0",
+  "goal": "Turn failure data into decisions: find a bad batch, a bad rack, a bad driver.",
+  "before": "J1, K3",
+  "steps": [
+   {
+    "text": "Generate a synthetic fleet dataset (2,000 nodes x 8 GPUs, 90 days) with columns: date, node, rack, gpu_serial_batch, driver, firmware, xid, downtime_min. Plant two signals: one GPU batch with 4x the XID 48/63 rate, one rack with high XID 79.",
+    "code": "pip install pandas numpy matplotlib jupyterlab"
+   },
+   {
+    "text": "Metrics: failures per 1,000 GPU-days, MTBI, XID rate by driver/firmware/batch/rack, time to repair.",
+    "code": null
+   },
+   {
+    "text": "Cohort analysis to find both planted signals; plot.",
+    "code": null
+   },
+   {
+    "text": "One-page executive note: trend, cause, risk, decision needed.",
+    "code": null
+   }
+  ],
+  "expect": "Notebook that finds the bad batch (ECC-type XIDs across racks) vs the bad rack (bus XIDs across batches).",
+  "verify": [
+   "Notebook + exec note"
+  ],
+  "broke": [],
+  "commit": "observability/fleet-reliability.ipynb, notes/J2-exec-note.md",
+  "cleanup": "-",
+  "interview": "Bad batch: failures follow serial/lot numbers across many racks. Bad rack: failures cluster by location across batches - usually power, cooling or a switch. Cohort by both and the pattern separates them."
+ },
+ {
+  "id": "J3",
+  "level": "Senior",
+  "title": "Executive communication drills",
+  "env": "L",
+  "hours": 6,
+  "cost": "$0",
+  "goal": "The JD stresses executive status, risks and decisions. Practice the formats.",
+  "before": "I2",
+  "steps": [
+   {
+    "text": "Weekly status for a fictional 2,048-GPU bring-up: RAG per stage, top 3 risks, decisions needed this week. Max one page.",
+    "code": null
+   },
+   {
+    "text": "Escalation email: hypothesis, evidence, impact, ask, deadline.",
+    "code": null
+   },
+   {
+    "text": "Stakeholder map: Product, Engineering, Sales, Operations, customer - what each wants, what you can offer.",
+    "code": null
+   },
+   {
+    "text": "Record 60-second explanations of 3 diagnoses (e.g. F3 hang, C2 NUMA, E2 EFA fallback). Replay, cut filler, re-record.",
+    "code": null
+   },
+   {
+    "text": "Map your Sapphire stories (ESAG migration, DR drills, cost optimization) to 'influence without authority' answers - your Cloud_Ops_Learning_Task_List.xlsx has the details.",
+    "code": null
+   }
+  ],
+  "expect": "Templates + recordings.",
+  "verify": [
+   "3 recordings under 60 s"
+  ],
+  "broke": [],
+  "commit": "notes/exec/",
+  "cleanup": "-",
+  "interview": "Use a real ProServe/Sapphire story: e.g. ESAG multi-account migration and DR drills - multiple customer teams, vendors, no direct authority, clear runbooks and status to align them."
+ },
+ {
+  "id": "L1",
+  "level": "Senior",
+  "title": "Capstone: GPU Bring-up and Validation Kit",
+  "env": "G2N",
+  "hours": 30,
+  "cost": "~$20-40 total",
+  "goal": "One repository, one command: Terraform builds a 2-node GPU cluster, Ansible configures it, your acceptance stages run, a report comes out.",
+  "before": "B5 and most Intermediate labs",
+  "steps": [
+   {
+    "text": "Layout.",
+    "code": "capstone/\n  terraform/        # S9 efa2 module: VPC/SG self-traffic, placement group, 2 nodes\n  ansible/          # driver check, DCGM, EFA/NCCL, container toolkit, nccl-tests, NHC\n  stages/           # from B5\n  criteria.toml\n  reports/\n  Makefile          # make up / make validate / make report / make down\n  README.md"
+   },
+   {
+    "text": "Makefile targets.",
+    "code": "up:       ; cd terraform && terraform apply -auto-approve\nconfigure:; cd ansible && ansible-playbook -i inventory.aws_ec2.yml site.yml\nvalidate: ; python3 run_acceptance.py --criteria criteria.toml --out reports/$$(date +%F)\ndown:     ; cd terraform && terraform destroy -auto-approve"
+   },
+   {
+    "text": "Ansible: dynamic inventory (amazon.aws.aws_ec2 plugin, filter tag Name=lab-efa-*), connect via SSM (community.aws.aws_ssm connection) so no SSH port is needed.",
+    "code": null
+   },
+   {
+    "text": "Inject failures and write a runbook for each: simulated XID line, EFA disabled (NCCL_NET=Socket), wrong NUMA binding, a 'slow node' (power cap with nvidia-smi -pl).",
+    "code": null
+   },
+   {
+    "text": "Optional K8s path: k3s + GPU Operator + Cluster Readiness Engine as a second validator.",
+    "code": null
+   },
+   {
+    "text": "README: architecture diagram, results table, cost per validation run, what changes at 2,000 GPUs.",
+    "code": null
+   },
+   {
+    "text": "CI (GitHub Actions): lint Terraform/Ansible/Python and regenerate the sample report from stored outputs (no GPUs in CI).",
+    "code": null
+   }
+  ],
+  "expect": "make up && make configure && make validate && make down produces a dated report in ~1-2 hours for ~$20.",
+  "verify": [
+   "Fresh clone works end to end",
+   "Each injected failure is caught by a stage"
+  ],
+  "broke": [
+   {
+    "symptom": "Ansible can't reach nodes",
+    "fix": "SSM connection plugin needs an S3 bucket for file transfer - set ansible_aws_ssm_bucket_name"
+   }
+  ],
+  "commit": "capstone/ (public repo)",
+  "cleanup": "make down; labdown",
+  "interview": "My kit builds a 2-node EFA cluster with Terraform, configures it with Ansible, runs DCGM, burn-in, NCCL single and multi-node, RDMA and storage stages against thresholds in a criteria file, and writes a go/no-go report. It caught EFA fallback, a power-capped straggler and a NUMA mis-binding; a run costs about $20."
+ },
+ {
+  "id": "L2",
+  "level": "Senior",
+  "title": "Public proof: posts, PRs and talk track",
+  "env": "L",
+  "hours": 16,
+  "cost": "$0",
+  "goal": "Make the work visible: posts, pull requests, a talk, an updated profile.",
+  "before": "L1",
+  "steps": [
+   {
+    "text": "One short post per domain from your own results (triage, XID decoder, NUMA penalty, NCCL scaling, acceptance runbook). Each: problem, what you did, numbers, lesson.",
+    "code": null
+   },
+   {
+    "text": "Two pull requests: docs or example fixes in repos you used (aws-samples/awsome-distributed-training, nccl-tests, cluster-readiness-engine). Read CONTRIBUTING first; small and useful beats big.",
+    "code": null
+   },
+   {
+    "text": "10-minute talk: rack to training job, using the capstone as the story.",
+    "code": null
+   },
+   {
+    "text": "Update headline/About to 'Cloud and AI infrastructure', link the capstone repo.",
+    "code": null
+   }
+  ],
+  "expect": "Links to posts, PRs, slides.",
+  "verify": [
+   "At least 2 PRs opened"
+  ],
+  "broke": [],
+  "commit": "notes/proof.md (links)",
+  "cleanup": "-",
+  "interview": "Show the capstone repo: architecture, a report, and one failure it caught - then the PR you got merged."
+ }
+]

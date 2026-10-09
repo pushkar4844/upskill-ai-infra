@@ -1,0 +1,38 @@
+[
+ {
+  "code": "L",
+  "name": "Laptop (Windows + WSL2 Ubuntu)",
+  "cost": "Free",
+  "use": "Python, Docker, kind, Redfish mockups, Slurm-in-Docker, KWOK, notebooks, writing."
+ },
+ {
+  "code": "V",
+  "name": "Two small Linux VMs (AWS t3.large or VirtualBox)",
+  "cost": "~$0.17/h for both on AWS; free on VirtualBox",
+  "use": "Things WSL can't do: kernel modules (Soft-RoCE), perf, real NICs, PXE."
+ },
+ {
+  "code": "G1",
+  "name": "One GPU, spot (g4dn.xlarge T4 16 GB or g5.xlarge A10G 24 GB)",
+  "cost": "~$0.20-0.50/h spot (check current price)",
+  "use": "Drivers, DCGM, burn-in, containers, GPU Operator, vLLM, metrics."
+ },
+ {
+  "code": "G4",
+  "name": "One multi-GPU node (g4dn.12xlarge 4xT4 or g5.12xlarge 4xA10G)",
+  "cost": "~$1.2-2.5/h spot, ~$4-6/h on-demand",
+  "use": "nccl-tests on one node, torchrun, Slurm with real GPUs, topology. No NVLink on these - PCIe only."
+ },
+ {
+  "code": "G2N",
+  "name": "Two EFA nodes in a cluster placement group (2 x g4dn.12xlarge)",
+  "cost": "~$8/h on-demand for both - run 2-3 h, then destroy",
+  "use": "EFA, multi-node NCCL, scaling, bisection. Use NVIDIA LaunchPad / a borrowed InfiniBand cluster for IB-only labs."
+ },
+ {
+  "code": "R",
+  "name": "Rented A100/H100 by the hour (GPU cloud or NVIDIA LaunchPad)",
+  "cost": "Varies - check provider",
+  "use": "MIG (needs A100/H100), NVLink/NVSwitch, GPUDirect RDMA, real fabric."
+ }
+]

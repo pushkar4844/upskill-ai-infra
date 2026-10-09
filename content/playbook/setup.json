@@ -1,0 +1,79 @@
+[
+ {
+  "id": "S1",
+  "title": "Install WSL2 + Ubuntu 24.04 on Windows",
+  "why": "Your Windows laptop becomes a Linux workstation. Open PowerShell as Administrator. Reboot when asked, then open 'Ubuntu' from the Start menu and create a Linux user.",
+  "code": "wsl --install -d Ubuntu-24.04\nwsl --set-default-version 2\nwsl -l -v        # should show Ubuntu-24.04  VERSION 2",
+  "expect": "Ubuntu-24.04 listed with VERSION 2. Also install Windows Terminal and VS Code with the 'WSL' extension; open your lab folder with `code .` from Ubuntu."
+ },
+ {
+  "id": "S2",
+  "title": "Base tools inside Ubuntu (WSL)",
+  "why": "Everything below runs in the Ubuntu terminal, not PowerShell.",
+  "code": "sudo apt update && sudo apt -y upgrade\nsudo apt install -y build-essential git curl wget jq unzip tree python3-venv python3-pip \\\n  sysstat stress-ng fio iperf3 ethtool numactl hwloc pciutils htop tmux\ngit config --global user.name \"Your Name\"\ngit config --global user.email \"you@example.com\"",
+  "expect": "`python3 --version` prints 3.12.x, `stress-ng --version` and `fio --version` work."
+ },
+ {
+  "id": "S3",
+  "title": "Docker, kind, kubectl, helm, k9s",
+  "why": "Install Docker Desktop for Windows and enable Settings > Resources > WSL integration > Ubuntu-24.04. Then install the Kubernetes CLIs inside Ubuntu.",
+  "code": "docker run --rm hello-world            # proves Docker works from WSL\n\n# kubectl\ncurl -LO \"https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\"\nsudo install -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl\n# kind (check https://kind.sigs.k8s.io for the latest version)\ncurl -Lo kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64 && sudo install kind /usr/local/bin/kind && rm kind\n# helm\ncurl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash\n# k9s (optional, nice UI)\ncurl -sS https://webinstall.dev/k9s | bash\n\nkind create cluster --name lab && kubectl get nodes",
+  "expect": "`kubectl get nodes` shows `lab-control-plane   Ready`. Delete it with `kind delete cluster --name lab` when done."
+ },
+ {
+  "id": "S4",
+  "title": "AWS sandbox account with guard-rails (do this before any GPU)",
+  "why": "Use a separate AWS account (or one only for this lab), never a customer account. In the console: (1) MFA on root and lock it away. (2) Billing > Budgets > create a monthly cost budget of $50 with email alerts at 50%, 80%, 100%. (3) Create an IAM Identity Center user or an IAM user with AdministratorAccess for the lab only. (4) Pick one region and stay in it (us-east-1 or us-west-2 have the most GPU capacity; ap-south-1 is fine for g4dn/g5).",
+  "code": "# AWS CLI v2 + Session Manager plugin (lets you log in to instances with no SSH port open)\ncurl \"https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip\" -o awscliv2.zip && unzip -q awscliv2.zip && sudo ./aws/install && rm -rf aws awscliv2.zip\ncurl \"https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb\" -o smp.deb && sudo dpkg -i smp.deb && rm smp.deb\naws configure sso        # or: aws configure  (access key of the lab-only user)\naws sts get-caller-identity",
+  "expect": "`get-caller-identity` prints your lab account ID. A budget email confirmation arrives."
+ },
+ {
+  "id": "S5",
+  "title": "Request GPU quota (takes 1-3 days - do it on day 1)",
+  "why": "New accounts usually have 0 vCPU for GPU instances. Request: 'Running On-Demand G and VT instances' = 48 and 'All G and VT Spot Instance Requests' = 48 (enough for one g4dn.12xlarge). Later, if you need p-instances, request 'Running On-Demand P instances'. Quota codes below are what AWS uses today - confirm in Service Quotas > Amazon EC2 if a call fails.",
+  "code": "aws service-quotas get-service-quota --service-code ec2 --quota-code L-DB2E81BA   # On-Demand G and VT\naws service-quotas get-service-quota --service-code ec2 --quota-code L-3819A6DF   # Spot G and VT\naws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-DB2E81BA --desired-value 48\naws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-3819A6DF --desired-value 48",
+  "expect": "Requests show as PENDING, then APPROVED by email. While waiting, do the laptop labs (A1, B1, K1, D1, G1, H4)."
+ },
+ {
+  "id": "S6",
+  "title": "Install Terraform and create your portfolio repo",
+  "why": "Everything you build goes into one Git repo. This is what you show in interviews.",
+  "code": "wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp.gpg\necho \"deb [signed-by=/usr/share/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" | sudo tee /etc/apt/sources.list.d/hashicorp.list\nsudo apt update && sudo apt install -y terraform\n\nmkdir -p ~/gpu-lab && cd ~/gpu-lab && git init\nmkdir -p infra/{vms,gpu1,efa2} linux gpu-health topology bmc rdma nccl slurm k8s cloud observability llm capstone notes results\ncat > README.md <<'EOF'\n# GPU Bring-up Lab\nHands-on journal for GPU infrastructure (NVIDIA SA Infrastructure prep).\nEach folder = one domain. Each lab = script + results/ + notes/<lab>.md (what I did, what broke, what I learned).\nEOF\ngit add . && git commit -m \"lab skeleton\"",
+  "expect": "`tree -L 1 ~/gpu-lab` shows the folders. Create a private GitHub repo and push; make it public later once polished."
+ },
+ {
+  "id": "S7",
+  "title": "Terraform: two small Linux VMs (environment V)",
+  "why": "Save as ~/gpu-lab/infra/vms/main.tf. Uses the default VPC, Ubuntu 24.04, SSM login (no SSH port), a security group that allows all traffic between the two VMs (needed for RDMA/iperf), and a 6-hour self-destruct as a safety net.",
+  "code": "terraform {\n  required_providers { aws = { source = \"hashicorp/aws\", version = \"~> 5.0\" } }\n}\nprovider \"aws\" { region = var.region }\nvariable \"region\" { default = \"us-east-1\" }\n\ndata \"aws_vpc\" \"default\" { default = true }\ndata \"aws_subnets\" \"default\" {\n  filter { name = \"vpc-id\"  values = [data.aws_vpc.default.id] }\n}\ndata \"aws_ami\" \"ubuntu\" {\n  most_recent = true\n  owners      = [\"099720109477\"] # Canonical\n  filter { name = \"name\" values = [\"ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*\"] }\n}\n\nresource \"aws_iam_role\" \"ssm\" {\n  name = \"lab-vm-ssm\"\n  assume_role_policy = jsonencode({ Version = \"2012-10-17\", Statement = [{ Effect = \"Allow\", Principal = { Service = \"ec2.amazonaws.com\" }, Action = \"sts:AssumeRole\" }] })\n}\nresource \"aws_iam_role_policy_attachment\" \"ssm\" {\n  role       = aws_iam_role.ssm.name\n  policy_arn = \"arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore\"\n}\nresource \"aws_iam_instance_profile\" \"ssm\" { name = \"lab-vm-ssm\"  role = aws_iam_role.ssm.name }\n\nresource \"aws_security_group\" \"lab\" {\n  name   = \"lab-vms\"\n  vpc_id = data.aws_vpc.default.id\n  ingress { from_port = 0  to_port = 0  protocol = \"-1\"  self = true }\n  egress  { from_port = 0  to_port = 0  protocol = \"-1\"  cidr_blocks = [\"0.0.0.0/0\"] }\n}\n\nresource \"aws_instance\" \"vm\" {\n  count                                = 2\n  ami                                  = data.aws_ami.ubuntu.id\n  instance_type                        = \"t3.large\"\n  subnet_id                            = data.aws_subnets.default.ids[0]   # same subnet for both\n  vpc_security_group_ids               = [aws_security_group.lab.id]\n  iam_instance_profile                 = aws_iam_instance_profile.ssm.name\n  instance_initiated_shutdown_behavior = \"terminate\"\n  root_block_device { volume_size = 40  volume_type = \"gp3\" }\n  user_data = \"#!/bin/bash\\nshutdown -h +360\\n\"   # safety net: dies after 6 h\n  tags = { Name = \"lab-vm-${count.index}\" }\n}\noutput \"ids\"         { value = aws_instance.vm[*].id }\noutput \"private_ips\" { value = aws_instance.vm[*].private_ip }",
+  "expect": "Run: `cd ~/gpu-lab/infra/vms && terraform init && terraform apply`. Log in with `aws ssm start-session --target <id>` then `sudo -iu ubuntu`. Destroy with `terraform destroy` at the end of every session."
+ },
+ {
+  "id": "S8",
+  "title": "Terraform: one GPU spot instance (environment G1 / G4)",
+  "why": "Save as ~/gpu-lab/infra/gpu1/main.tf. Uses the AWS Deep Learning Base GPU AMI (NVIDIA driver, CUDA, Docker + NVIDIA container toolkit, EFA, NCCL already installed), spot pricing, SSM login and a 4-hour self-destruct. Change instance_type to g4dn.12xlarge for G4. If the AMI filter finds nothing, list names with: aws ec2 describe-images --owners amazon --filters 'Name=name,Values=Deep Learning Base*Ubuntu 22.04*' --query 'Images[].Name'",
+  "code": "terraform {\n  required_providers { aws = { source = \"hashicorp/aws\", version = \"~> 5.0\" } }\n}\nprovider \"aws\" { region = var.region }\nvariable \"region\"        { default = \"us-east-1\" }\nvariable \"instance_type\" { default = \"g4dn.xlarge\" }   # g5.xlarge | g4dn.12xlarge | g5.12xlarge\n\ndata \"aws_vpc\" \"default\" { default = true }\ndata \"aws_subnets\" \"default\" {\n  filter { name = \"vpc-id\"  values = [data.aws_vpc.default.id] }\n}\ndata \"aws_ami\" \"dlami\" {\n  most_recent = true\n  owners      = [\"amazon\"]\n  filter { name = \"name\" values = [\"Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)*\"] }\n}\n\nresource \"aws_iam_role\" \"ssm\" {\n  name = \"lab-gpu-ssm\"\n  assume_role_policy = jsonencode({ Version = \"2012-10-17\", Statement = [{ Effect = \"Allow\", Principal = { Service = \"ec2.amazonaws.com\" }, Action = \"sts:AssumeRole\" }] })\n}\nresource \"aws_iam_role_policy_attachment\" \"ssm\" {\n  role       = aws_iam_role.ssm.name\n  policy_arn = \"arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore\"\n}\nresource \"aws_iam_instance_profile\" \"ssm\" { name = \"lab-gpu-ssm\"  role = aws_iam_role.ssm.name }\n\nresource \"aws_security_group\" \"gpu\" {\n  name   = \"lab-gpu\"\n  vpc_id = data.aws_vpc.default.id\n  ingress { from_port = 0  to_port = 0  protocol = \"-1\"  self = true }\n  egress  { from_port = 0  to_port = 0  protocol = \"-1\"  cidr_blocks = [\"0.0.0.0/0\"] }\n}\n\nresource \"aws_instance\" \"gpu\" {\n  ami                                  = data.aws_ami.dlami.id\n  instance_type                        = var.instance_type\n  subnet_id                            = data.aws_subnets.default.ids[0]\n  vpc_security_group_ids               = [aws_security_group.gpu.id]\n  iam_instance_profile                 = aws_iam_instance_profile.ssm.name\n  instance_initiated_shutdown_behavior = \"terminate\"\n  instance_market_options {\n    market_type = \"spot\"\n    spot_options { spot_instance_type = \"one-time\"  instance_interruption_behavior = \"terminate\" }\n  }\n  root_block_device { volume_size = 150  volume_type = \"gp3\" }\n  user_data = \"#!/bin/bash\\nshutdown -h +240\\n\"   # safety net: dies after 4 h\n  tags = { Name = \"lab-gpu\" }\n}\noutput \"id\" { value = aws_instance.gpu.id }",
+  "expect": "`terraform apply` then `aws ssm start-session --target $(terraform output -raw id)`, `sudo -iu ubuntu`, `nvidia-smi` shows your GPU. If spot capacity is not available, try another AZ (change subnet index) or another type."
+ },
+ {
+  "id": "S9",
+  "title": "Terraform: two EFA nodes (environment G2N) - only when you reach E2/F2",
+  "why": "Copy infra/gpu1 to infra/efa2 and change: count = 2, instance_type = g4dn.12xlarge (supports EFA - confirm in the EC2 'EFA supported instance types' doc), a cluster placement group, and an EFA network interface instead of subnet_id/vpc_security_group_ids. EFA also needs the security group to allow all outbound traffic to itself - the rule below covers it. On-demand is safer than spot for multi-node. Two g4dn.12xlarge = 96 vCPU, so raise the On-Demand G and VT quota to 96 first.",
+  "code": "resource \"aws_placement_group\" \"pg\" { name = \"lab-efa\"  strategy = \"cluster\" }\n\nresource \"aws_security_group_rule\" \"self_egress\" {\n  type = \"egress\"  from_port = 0  to_port = 0  protocol = \"-1\"\n  security_group_id = aws_security_group.gpu.id  source_security_group_id = aws_security_group.gpu.id\n}\n\nresource \"aws_instance\" \"gpu\" {\n  count           = 2\n  ami             = data.aws_ami.dlami.id\n  instance_type   = \"g4dn.12xlarge\"\n  placement_group = aws_placement_group.pg.id\n  iam_instance_profile = aws_iam_instance_profile.ssm.name\n  network_interface {\n    device_index         = 0\n    network_interface_id = aws_network_interface.efa[count.index].id\n  }\n  root_block_device { volume_size = 150  volume_type = \"gp3\" }\n  user_data = \"#!/bin/bash\\nshutdown -h +180\\n\"\n  instance_initiated_shutdown_behavior = \"terminate\"\n  tags = { Name = \"lab-efa-${count.index}\" }\n}\nresource \"aws_network_interface\" \"efa\" {\n  count           = 2\n  subnet_id       = data.aws_subnets.default.ids[0]\n  security_groups = [aws_security_group.gpu.id]\n  interface_type  = \"efa\"\n}\noutput \"ids\" { value = aws_instance.gpu[*].id }\noutput \"ips\" { value = aws_network_interface.efa[*].private_ip }",
+  "expect": "Both nodes up; on each `fi_info -p efa -t FI_EP_RDM` lists the efa provider. Budget: run 2-3 hours, then `terraform destroy`."
+ },
+ {
+  "id": "S10",
+  "title": "The nightly teardown habit (most important rule)",
+  "why": "GPU labs get expensive only when you forget them. End every session with this. Add it to your shell as an alias.",
+  "code": "# ~/.bashrc\nalias labdown='for d in ~/gpu-lab/infra/*/; do (cd \"$d\" && [ -f terraform.tfstate ] && terraform destroy -auto-approve); done; \\\n aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query \"Reservations[].Instances[].[InstanceId,InstanceType]\" --output table'\n\nlabdown   # should end with an empty table",
+  "expect": "Empty table = nothing running = no bill. Check Billing > Bills the next morning for the first week until you trust it."
+ },
+ {
+  "id": "S11",
+  "title": "Free and alternative GPU access",
+  "why": "Some labs need hardware AWS spot cannot give cheaply (MIG on A100/H100, NVLink/NVSwitch, InfiniBand). Options: NVIDIA LaunchPad (free, time-boxed curated labs - apply via nvidia.com/launchpad), NVIDIA Deep Learning Institute courses with hosted GPUs, hourly A100/H100 rental from GPU clouds (compare current prices), or a colleague's cluster. Mark in your notes which results came from borrowed hardware.",
+  "code": null,
+  "expect": "A short list of 2 providers with current $/hour for 1xA100 and 1xH100, saved in notes/hardware-options.md."
+ }
+]

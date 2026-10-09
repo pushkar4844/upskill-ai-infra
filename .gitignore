@@ -1,0 +1,8 @@
+# build output (published to gh-pages or by the Actions workflow)
+dist/
+# local credentials - NEVER commit
+users.local.json
+.env
+node_modules/
+.DS_Store
+Thumbs.db

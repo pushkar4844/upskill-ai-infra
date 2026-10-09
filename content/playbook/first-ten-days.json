@@ -1,0 +1,62 @@
+[
+ {
+  "day": "Day 1",
+  "labs": "S1-S6",
+  "outcome": "Laptop ready, AWS account guarded, quotas requested, repo created.",
+  "time": "2-3 h"
+ },
+ {
+  "day": "Day 2",
+  "labs": "A1",
+  "outcome": "Triage drill on WSL: create CPU/memory/disk/network bottlenecks and catch each one.",
+  "time": "2-3 h"
+ },
+ {
+  "day": "Day 3",
+  "labs": "A1 finish + B1",
+  "outcome": "triage.sh committed. Start the XID decoder (no GPU needed).",
+  "time": "2-3 h"
+ },
+ {
+  "day": "Day 4",
+  "labs": "B1",
+  "outcome": "xidwatch.py with tests passing.",
+  "time": "2 h"
+ },
+ {
+  "day": "Day 5",
+  "labs": "K1",
+  "outcome": "Transformer/cluster math notebook - memory, KV cache, FLOPs.",
+  "time": "3 h"
+ },
+ {
+  "day": "Day 6",
+  "labs": "D1",
+  "outcome": "Redfish mockup in Docker; redfish_health.py prints temps/fans/PSUs.",
+  "time": "2-3 h"
+ },
+ {
+  "day": "Day 7",
+  "labs": "S7 + E1",
+  "outcome": "First Terraform apply of 2 VMs; Soft-RoCE ib_write_bw between them; destroy.",
+  "time": "3 h"
+ },
+ {
+  "day": "Day 8",
+  "labs": "G1",
+  "outcome": "Slurm in Docker with fake GPUs.",
+  "time": "3 h"
+ },
+ {
+  "day": "Day 9",
+  "labs": "S8 + C1 + B2",
+  "outcome": "First GPU spot instance: topology, DCGM r1/r2/r3; destroy.",
+  "time": "3 h (~$1)"
+ },
+ {
+  "day": "Day 10",
+  "labs": "H1",
+  "outcome": "GPU Operator on k3s on the GPU instance; CUDA pod runs; destroy.",
+  "time": "3 h (~$1)"
+ }
+]
