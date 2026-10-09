@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>When you&#39;re stuck · Upskill AI Infra</title>
+<meta name="description" content="Use the same order of checks for every failed lab.">
+<meta property="og:title" content="When you&#39;re stuck · Upskill AI Infra"><meta property="og:description" content="Use the same order of checks for every failed lab."><meta property="og:type" content="website">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/css/app.css">
+<script>try{var t=localStorage.getItem("uai-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body data-root="../../" data-page="resources">
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="top-in">
+<a class="brand" href="../../" aria-label="Upskill AI Infra home"><span class="logo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span>Upskill <b>AI Infra</b></span></a>
+<nav class="mainnav" id="mainnav" aria-label="Main"><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">Labs</a><a href="../../concepts/">Concepts</a><a href="../../interview/">Interview</a><a href="../../role/">The role</a><a href="../../resources/" class="on" aria-current="page">Resources</a></nav>
+<div class="tools">
+<a class="iconbtn" href="../../search/" aria-label="Search" title="Search (/)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+<button class="iconbtn" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle theme"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+<button class="iconbtn menu-btn" type="button" aria-label="Menu" aria-controls="mainnav" aria-expanded="false" data-menu><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+</div></div></header><main id="main"><div class="wrap">
+<div class="page-head"><p class="eyebrow">Resources</p><h1>When you&#39;re stuck</h1><p class="lead">Use the same order of checks for every failed lab.</p></div>
+<nav class="subnav" aria-label="Resources"><a href="../../resources/">Overview</a><a href="../../resources/hidden-gems/">Hidden gems</a><a href="../../resources/reading/">Reading</a><a href="../../resources/certifications/">Certifications</a><a href="../../resources/troubleshooting/" class="on" aria-current="page">When you're stuck</a><a href="../../resources/glossary/">Glossary</a></nav>
+<ol class="ladder"><li><b>Read the error, all of it</b><p>Copy the exact message into notes/&lt;lab&gt;.md before changing anything.</p></li><li><b>Check versions</b><p>nvidia-smi, nvcc --version, cat /proc/driver/nvidia/version, kubectl version, helm list -A. Half of GPU problems are version mismatches.</p></li><li><b>Check the logs at the right layer</b><p>Kernel: sudo dmesg -T | tail -50, journalctl -k. Service: journalctl -u &lt;svc&gt; -n 100. K8s: kubectl describe pod, kubectl logs -n &lt;ns&gt; &lt;pod&gt; --all-containers. NCCL: NCCL_DEBUG=INFO.</p></li><li><b>Reduce the problem</b><p>Same command on 1 GPU / 1 node / smaller message / no container. Change one thing at a time.</p></li><li><b>Search the repo issues</b><p>GitHub &gt; repo &gt; Issues &gt; search the error text. Most lab errors already have an answer there.</p></li><li><b>Write it down</b><p>Symptom, cause, fix in notes/. These become your interview stories (&#39;a time I debugged...&#39;).</p></li></ol>
+<div class="callout"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg><div>Write every failure down in <code>notes/&lt;lab&gt;.md</code> as symptom, cause, fix. After 50 labs you'll have dozens of real debugging stories, which is what interviewers ask for.</div></div></div></main><footer class="foot"><div class="wrap foot-in">
+<div class="foot-brand"><b>Upskill AI Infra</b><p>A hands-on roadmap for learning GPU and AI infrastructure, from your first triage script to a cluster validation kit. Free and open; progress is saved only in your browser.</p></div>
+<div class="foot-cols">
+<div><h4>Learn</h4><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">All labs</a><a href="../../concepts/">Concepts</a></div>
+<div><h4>Prepare</h4><a href="../../interview/">Interview bank</a><a href="../../role/">The role</a><a href="../../resources/certifications/">Certifications</a></div>
+<div><h4>Help</h4><a href="../../resources/troubleshooting/">When you're stuck</a><a href="../../resources/glossary/">Glossary</a><a href="../../about/">About &amp; sources</a><a href="https://github.com/pushkar4844/upskill-ai-infra" target="_blank" rel="noopener">Source on GitHub</a></div>
+</div></div></footer>
+<script src="../../assets/js/app.js"></script>
+</body></html>

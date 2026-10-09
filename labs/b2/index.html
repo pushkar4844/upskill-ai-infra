@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B2 DCGM diagnostics, levels 1 to 4 · Upskill AI Infra</title>
+<meta name="description" content="DCGM is NVIDIA&#39;s data-center GPU manager. Its diag levels are how fleets prove a GPU is healthy. Learn what each level runs and how long it takes.">
+<meta property="og:title" content="B2 DCGM diagnostics, levels 1 to 4 · Upskill AI Infra"><meta property="og:description" content="DCGM is NVIDIA&#39;s data-center GPU manager. Its diag levels are how fleets prove a GPU is healthy. Learn what each level runs and how long it takes."><meta property="og:type" content="website">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/css/app.css">
+<script>try{var t=localStorage.getItem("uai-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body data-root="../../" data-page="lab">
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="top-in">
+<a class="brand" href="../../" aria-label="Upskill AI Infra home"><span class="logo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span>Upskill <b>AI Infra</b></span></a>
+<nav class="mainnav" id="mainnav" aria-label="Main"><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/" class="on" aria-current="page">Labs</a><a href="../../concepts/">Concepts</a><a href="../../interview/">Interview</a><a href="../../role/">The role</a><a href="../../resources/">Resources</a></nav>
+<div class="tools">
+<a class="iconbtn" href="../../search/" aria-label="Search" title="Search (/)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+<button class="iconbtn" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle theme"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+<button class="iconbtn menu-btn" type="button" aria-label="Menu" aria-controls="mainnav" aria-expanded="false" data-menu><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+</div></div></header><main id="main">
+<div class="lesson"><aside class="outline" aria-label="Phase outline"><div class="ol-in">
+<a class="ol-phase" href="../../roadmap/1-foundations/"><span class="pnum p1">1</span><span><small>Phase 1</small>Foundations</span></a>
+<div class="progress" data-prog="A1,B1,K1,C1,B2,D1,E1,F1,G1,H1" data-prog-label="labs"><div class="bar"><span></span></div><small data-prog-text>0 of 10 labs</small></div>
+<p class="ol-mod dom-A"><b>A</b>Linux and containers</p><ol class="ol-list"><li data-lab="A1" class=""><a href="../../labs/a1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">A1</span><span>The 60-second node triage drill</span></a></li></ol><p class="ol-mod dom-B"><b>B</b>GPU health and diagnostics</p><ol class="ol-list"><li data-lab="B1" class=""><a href="../../labs/b1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">B1</span><span>Build an XID decoder</span></a></li><li data-lab="B2" class="cur"><a href="../../labs/b2/" aria-current="page"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">B2</span><span>DCGM diagnostics, levels 1 to 4</span></a></li></ol><p class="ol-mod dom-K"><b>K</b>LLM and training literacy</p><ol class="ol-list"><li data-lab="K1" class=""><a href="../../labs/k1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">K1</span><span>Transformer and cluster arithmetic</span></a></li></ol><p class="ol-mod dom-C"><b>C</b>Server hardware and topology</p><ol class="ol-list"><li data-lab="C1" class=""><a href="../../labs/c1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">C1</span><span>Draw the node from memory</span></a></li></ol><p class="ol-mod dom-D"><b>D</b>BMC and out-of-band</p><ol class="ol-list"><li data-lab="D1" class=""><a href="../../labs/d1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">D1</span><span>Redfish 101 on a mockup server</span></a></li></ol><p class="ol-mod dom-E"><b>E</b>RDMA and interconnect</p><ol class="ol-list"><li data-lab="E1" class=""><a href="../../labs/e1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">E1</span><span>RDMA from zero on Soft-RoCE</span></a></li></ol><p class="ol-mod dom-F"><b>F</b>NCCL and collectives</p><ol class="ol-list"><li data-lab="F1" class=""><a href="../../labs/f1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">F1</span><span>nccl-tests on one node and the busbw formula</span></a></li></ol><p class="ol-mod dom-G"><b>G</b>Slurm and provisioning</p><ol class="ol-list"><li data-lab="G1" class=""><a href="../../labs/g1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">G1</span><span>Slurm in Docker with fake GPUs</span></a></li></ol><p class="ol-mod dom-H"><b>H</b>Kubernetes for GPUs</p><ol class="ol-list"><li data-lab="H1" class=""><a href="../../labs/h1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">H1</span><span>GPU Operator on one node</span></a></li></ol>
+<a class="small ol-all" href="../../"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Full roadmap</a></div></aside>
+<article class="lesson-main">
+<nav class="crumbs" aria-label="Breadcrumb"><a href="../../">Roadmap</a><span class="sep" aria-hidden="true">›</span><a href="../../roadmap/1-foundations/">Phase 1</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">B2</span></nav>
+<header class="lesson-head">
+<div class="lh-tags"><span class="lid big">B2</span><a class="dtag dom-B" href="../../concepts/b-gpu-health-and-diagnostics/"><b>B</b>GPU health and diagnostics</a><span class="pill lv-beginner">Beginner</span><span class="pill core" title="Part of the shorter core path">Core</span><span class="done-badge" data-lab="B2"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Completed</span></div>
+<h1>DCGM diagnostics, levels 1 to 4</h1><p class="lead">DCGM is NVIDIA&#39;s data-center GPU manager. Its diag levels are how fleets prove a GPU is healthy. Learn what each level runs and how long it takes.</p>
+<dl class="facts">
+<div><dt>Where</dt><dd><span class="chip" title="One GPU, spot (g4dn.xlarge T4 16 GB or g5.xlarge A10G 24 GB)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>G1</span> One GPU, spot (g4dn.xlarge T4 16 GB or g5.xlarge A10G 24 GB)</dd></div>
+<div><dt>Time</dt><dd>6 hours</dd></div>
+<div><dt>Cost</dt><dd>~$1-2</dd></div>
+<div><dt>Do first</dt><dd><a href="../../setup/s8/">S8</a>, <a href="../../labs/b1/">B1</a></dd></div>
+</dl></header>
+<nav class="toc toc-inline" aria-label="On this page"><p>On this page</p><ol><li><a href="#why">Why it matters</a></li><li><a href="#done">What done looks like</a></li><li><a href="#steps">Hands-on steps</a></li><li><a href="#check">Check yourself</a></li><li><a href="#broke">If it breaks</a></li><li><a href="#finish">Commit and clean up</a></li><li><a href="#interview">Interview</a></li><li><a href="#deeper">Go deeper</a></li></ol></nav>
+
+<section id="why" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Why it matters</h2>
+<p>Hands-on bring-up and validation of large-scale NVIDIA GPU platforms.</p>
+<p class="small muted">Gives evidence for these requirements in the posting:</p><ul class="ticks small"><li>Bring-up and validation of multi-GPU and multi-node NVIDIA platforms</li></ul>
+<p class="small"><a href="../../concepts/b-gpu-health-and-diagnostics/"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>New to gpu health and diagnostics? Read the 5-minute primer first.</a></p>
+</section>
+
+<section id="done" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>What done looks like</h2>
+<div class="callout ok"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><div><b>Deliverable.</b> dcgm_report.py and a table of your timings versus the docs.</div></div>
+<details class="more-box"><summary>The outcome, step by step (field manual version)</summary><ol class="msteps"><li>Install DCGM and run <code>dcgmi discovery -l</code>.</li><li>Run <code>dcgmi diag -r 1</code>, then <code>-r 2</code>, then <code>-r 3 --fail-early</code>. Save JSON with <code>-j</code>.</li><li>Compare your timings with the documented Hopper figures: r1 under 2.5 s, r2 under 10.5 min on 8 GPUs, r3 under 35 min on 8 GPUs, r4 under 2.25 h on 8 GPUs.</li><li>Write down which plugins each level adds: r2 adds PCIe/NVLink, memory and memory bandwidth; r3 adds diagnostic, targeted stress, targeted power, NVBandwidth and NCCL tests; r4 adds memtest and pulse.</li><li>Write a parser that turns the JSON into pass/fail per GPU per plugin.</li></ol></details>
+</section>
+
+<section id="steps" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Hands-on steps</h2>
+<ol class="steps"><li><div class="st-text">Start a GPU instance (g4dn.xlarge is fine).</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>cd ~/gpu-lab/infra/gpu1 &amp;&amp; terraform apply
+aws ssm start-session --target $(terraform output -raw id)
+sudo -iu ubuntu; nvidia-smi</code></pre></div></li><li><div class="st-text">Check DCGM. The Deep Learning Base AMI already includes DCGM 4, so this usually just starts the service. If <code>dcgmi</code> is missing (plain Ubuntu), install the package that matches your driver&#39;s CUDA major version, as NVIDIA&#39;s DCGM guide does.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>dcgmi --version || {
+  CUDA_VERSION=$(nvidia-smi -q | sed -E -n &#39;s/CUDA Version[ :]+([0-9]+)[.].*/\1/p&#39;)
+  sudo apt-get update
+  sudo apt-get install -y --install-recommends datacenter-gpu-manager-4-cuda${CUDA_VERSION}
+}
+sudo systemctl --now enable nvidia-dcgm
+dcgmi discovery -l</code></pre></div></li><li><div class="st-text">Run levels 1, 2, 3 and save JSON. Time each one.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>mkdir -p ~/dcgm &amp;&amp; cd ~/dcgm
+for r in 1 2 3; do /usr/bin/time -f &quot;r$r %e s&quot; dcgmi diag -r $r -j &gt; r$r.json; done
+jq &#39;keys&#39; r1.json      # look at the structure before parsing</code></pre></div></li><li><div class="st-text">Read which plugins each level adds (the DCGM docs in Go deeper list them). Optional: r4 takes hours - skip on a T4 unless you want the experience.</div></li><li><div class="st-text">Write a parser. The JSON layout differs between DCGM 3 and 4, so this walks the tree and prints any test name + result it finds - adjust once you&#39;ve seen your file.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>cat &gt; ~/dcgm/dcgm_report.py &lt;&lt;&#39;EOF&#39;
+#!/usr/bin/env python3
+import json, sys
+def walk(o, path=&quot;&quot;):
+    if isinstance(o, dict):
+        name = o.get(&quot;name&quot;) or o.get(&quot;test_name&quot;)
+        res = o.get(&quot;status&quot;) or o.get(&quot;result&quot;)
+        if name and res:
+            print(f&quot;{name:35} {res}&quot;)
+        for k, v in o.items():
+            walk(v, f&quot;{path}/{k}&quot;)
+    elif isinstance(o, list):
+        for v in o:
+            walk(v, path)
+for f in sys.argv[1:]:
+    print(&quot;==&quot;, f); walk(json.load(open(f)))
+EOF
+python3 ~/dcgm/dcgm_report.py r1.json r2.json r3.json</code></pre></div></li><li><div class="st-text">Also try health watches and live fields.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>dcgmi health -s a          # enable all watches on group 0
+dcgmi health -c
+dcgmi dmon -e 150,155,203,204 -c 5   # temp, power, gpu util, mem copy util (field IDs)</code></pre></div></li><li><div class="st-text">Copy results to your repo (print/paste or S3), destroy.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>terraform destroy -auto-approve</code></pre></div></li></ol>
+<div class="callout info"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg><div><b>You should see.</b> discovery lists 1 GPU. r1 finishes in seconds, r2 in minutes, r3 tens of minutes on a T4. All tests Pass on a healthy GPU.</div></div>
+</section>
+
+<section id="check" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>Check yourself</h2>
+<ul class="checklist"><li><label><input type="checkbox" data-verify="B2:0"><span>Timing table r1/r2/r3 vs documented Hopper figures (Go deeper)</span></label></li><li><label><input type="checkbox" data-verify="B2:1"><span>Parser prints pass/fail per test</span></label></li><li><label><input type="checkbox" data-verify="B2:2"><span>You can say what r3 adds over r2</span></label></li></ul>
+</section>
+
+<section id="broke" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7V4M8 4l2 3M16 4l-2 3M3 13h4M17 13h4M4 19l3-2M20 19l-3-2"/></svg>If it breaks</h2>
+<div class="tscroll"><table class="brk"><thead><tr><th>Symptom</th><th>Fix</th></tr></thead><tbody><tr><td>dcgmi: Unable to connect to host engine</td><td>sudo systemctl status nvidia-dcgm; start it; or run nv-hostengine manually</td></tr><tr><td>Diag skips tests &#39;not supported&#39;</td><td>Some plugins need specific GPUs/NVLink - note it, that&#39;s a finding</td></tr><tr><td>Package not found</td><td>The CUDA apt repo must be configured first (NVIDIA CUDA installation guide). On Maxwell/Pascal/Volta GPUs with driver 580 use the -cuda12 package</td></tr></tbody></table></div>
+<p class="small">Still stuck? Follow the <a href="../../resources/troubleshooting/">debug ladder</a>.</p></section>
+
+<section id="finish" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Commit and clean up</h2>
+<div class="split2"><div class="card"><h3>Commit to your repo</h3><p>gpu-health/dcgm_report.py, results/dcgm/&lt;gpu&gt;-r1..r3.json, notes/B2.md with timing table</p></div><div class="card warn"><h3>Clean up</h3><p>terraform destroy; labdown</p></div></div>
+</section>
+
+<section id="interview" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/></svg>Interview</h2>
+<p class="q"><b>Be ready for:</b> What does dcgmi diag -r 3 run that -r 2 does not, and when would you pay for -r 4 ?</p>
+<details class="ans"><summary>Show the answer you can now give</summary><p>r1 is a seconds-long sanity check, r2 adds PCIe/NVLink and memory tests, r3 adds stress, power, bandwidth and NCCL plugins and takes ~30 min on 8 GPUs, r4 adds memtest/pulse for hours. I run r3 at acceptance and r1 at job start.</p></details>
+</section>
+
+<section id="deeper" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 20a4 4 0 0 1 0-8h10"/></svg>Go deeper</h2>
+
+<div class="split2">
+<div><h3>Repositories</h3><ul class="reflist"><li><a href="https://github.com/NVIDIA/DCGM" target="_blank" rel="noopener">NVIDIA/DCGM<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a><span>diagnostics, health, fields</span></li><li><a href="https://github.com/NVIDIA/go-dcgm" target="_blank" rel="noopener">NVIDIA/go-dcgm<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a><span>Go bindings</span></li><li><a href="https://github.com/NVIDIA/dcgm-exporter" target="_blank" rel="noopener">NVIDIA/dcgm-exporter<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a><span>metrics exporter</span></li></ul></div>
+<div><h3>Docs and reading</h3><ul class="reflist"><li><a href="https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/dcgm-diagnostics.html" target="_blank" rel="noopener">DCGM Diagnostics (run levels r1-r4)<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li><li><a href="https://modal.com/blog/gpu-health" target="_blank" rel="noopener">Modal: Keeping 20,000 GPUs healthy<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li></ul></div>
+</div></section>
+
+<div class="complete-bar"><button class="btn primary" type="button" data-complete="B2"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span>Mark lab complete</span></button><span class="small muted">Saved in this browser.</span></div>
+<nav class="pager" aria-label="Lab navigation">
+<a class="prev" href="../../labs/c1/"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span><small>Previous</small>C1 · Draw the node from memory</span></a>
+<a class="next" href="../../labs/d1/"><span><small>Next</small>D1 · Redfish 101 on a mockup server</span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></a>
+</nav></article>
+<nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#why">Why it matters</a></li><li><a href="#done">What done looks like</a></li><li><a href="#steps">Hands-on steps</a></li><li><a href="#check">Check yourself</a></li><li><a href="#broke">If it breaks</a></li><li><a href="#finish">Commit and clean up</a></li><li><a href="#interview">Interview</a></li><li><a href="#deeper">Go deeper</a></li></ol></nav>
+</div></main><footer class="foot"><div class="wrap foot-in">
+<div class="foot-brand"><b>Upskill AI Infra</b><p>A hands-on roadmap for learning GPU and AI infrastructure, from your first triage script to a cluster validation kit. Free and open; progress is saved only in your browser.</p></div>
+<div class="foot-cols">
+<div><h4>Learn</h4><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">All labs</a><a href="../../concepts/">Concepts</a></div>
+<div><h4>Prepare</h4><a href="../../interview/">Interview bank</a><a href="../../role/">The role</a><a href="../../resources/certifications/">Certifications</a></div>
+<div><h4>Help</h4><a href="../../resources/troubleshooting/">When you're stuck</a><a href="../../resources/glossary/">Glossary</a><a href="../../about/">About &amp; sources</a><a href="https://github.com/pushkar4844/upskill-ai-infra" target="_blank" rel="noopener">Source on GitHub</a></div>
+</div></div></footer>
+<script src="../../assets/js/app.js"></script>
+</body></html>

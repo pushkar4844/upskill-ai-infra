@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S9 Terraform: two EFA nodes (environment G2N) - only when you reach E2/F2 · Upskill AI Infra</title>
+<meta name="description" content="Copy infra/gpu1 to infra/efa2 and change: count = 2, instance_type = an EFA-capable GPU size (check with the first command below; g4dn.12xlarge is the usual low">
+<meta property="og:title" content="S9 Terraform: two EFA nodes (environment G2N) - only when you reach E2/F2 · Upskill AI Infra"><meta property="og:description" content="Copy infra/gpu1 to infra/efa2 and change: count = 2, instance_type = an EFA-capable GPU size (check with the first command below; g4dn.12xlarge is the usual low"><meta property="og:type" content="website">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/css/app.css">
+<script>try{var t=localStorage.getItem("uai-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body data-root="../../" data-page="setup">
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="top-in">
+<a class="brand" href="../../" aria-label="Upskill AI Infra home"><span class="logo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span>Upskill <b>AI Infra</b></span></a>
+<nav class="mainnav" id="mainnav" aria-label="Main"><a href="../../" class="on" aria-current="page">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">Labs</a><a href="../../concepts/">Concepts</a><a href="../../interview/">Interview</a><a href="../../role/">The role</a><a href="../../resources/">Resources</a></nav>
+<div class="tools">
+<a class="iconbtn" href="../../search/" aria-label="Search" title="Search (/)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+<button class="iconbtn" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle theme"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+<button class="iconbtn menu-btn" type="button" aria-label="Menu" aria-controls="mainnav" aria-expanded="false" data-menu><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+</div></div></header><main id="main">
+<div class="lesson"><aside class="outline" aria-label="Phase outline"><div class="ol-in">
+<a class="ol-phase" href="../../roadmap/0-setup/"><span class="pnum p0">0</span><span><small>Phase 0</small>Set up your lab</span></a>
+<div class="progress" data-prog="S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11" data-prog-label="steps"><div class="bar"><span></span></div><small data-prog-text>0 of 11 steps</small></div>
+<ol class="ol-list"><li data-lab="S1" class=""><a href="../../setup/s1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S1</span><span>Install WSL2 + Ubuntu 24.04 on Windows</span></a></li><li data-lab="S2" class=""><a href="../../setup/s2/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S2</span><span>Base tools inside Ubuntu (WSL)</span></a></li><li data-lab="S3" class=""><a href="../../setup/s3/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S3</span><span>Docker, kind, kubectl, helm, k9s</span></a></li><li data-lab="S4" class=""><a href="../../setup/s4/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S4</span><span>AWS sandbox account with guard-rails (do this before any GPU)</span></a></li><li data-lab="S5" class=""><a href="../../setup/s5/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S5</span><span>Request GPU quota (takes 1-3 days - do it on day 1)</span></a></li><li data-lab="S6" class=""><a href="../../setup/s6/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S6</span><span>Install Terraform and create your portfolio repo</span></a></li><li data-lab="S7" class=""><a href="../../setup/s7/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S7</span><span>Terraform: two small Linux VMs (environment V)</span></a></li><li data-lab="S8" class=""><a href="../../setup/s8/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S8</span><span>Terraform: one GPU spot instance (environment G1 / G4)</span></a></li><li data-lab="S9" class="cur"><a href="../../setup/s9/" aria-current="page"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S9</span><span>Terraform: two EFA nodes (environment G2N) - only when you reach E2/F2</span></a></li><li data-lab="S10" class=""><a href="../../setup/s10/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S10</span><span>The nightly teardown habit (most important rule)</span></a></li><li data-lab="S11" class=""><a href="../../setup/s11/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">S11</span><span>Free and alternative GPU access</span></a></li></ol>
+<a class="small ol-all" href="../../"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Full roadmap</a></div></aside><article class="lesson-main">
+<nav class="crumbs" aria-label="Breadcrumb"><a href="../../">Roadmap</a><span class="sep" aria-hidden="true">›</span><a href="../../roadmap/0-setup/">Phase 0</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">S9</span></nav>
+<header class="lesson-head"><div class="lh-tags"><span class="lid big">S9</span><span class="pill">Setup step 9 of 11</span><span class="done-badge" data-lab="S9"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Completed</span></div><h1>Terraform: two EFA nodes (environment G2N) - only when you reach E2/F2</h1></header>
+<section class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Why</h2><p>Copy infra/gpu1 to infra/efa2 and change: count = 2, instance_type = an EFA-capable GPU size (check with the first command below; g4dn.12xlarge is the usual low-cost choice), a cluster placement group, and an EFA network interface instead of subnet_id/vpc_security_group_ids. EFA also needs the security group to allow all outbound traffic to itself - the rule below covers it. On-demand is safer than spot for multi-node. Two g4dn.12xlarge = 96 vCPU, so raise the On-Demand G and VT quota to 96 first.</p></section>
+<section class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Do it</h2><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code># 1) Which GPU sizes support EFA in your region?
+aws ec2 describe-instance-types --filters Name=network-info.efa-supported,Values=true Name=instance-type,Values=&#39;g4dn.*&#39;,&#39;g5.*&#39;,&#39;g6.*&#39;,&#39;g6e.*&#39; \
+  --query &#39;sort(InstanceTypes[].InstanceType)&#39; --output text
+
+# 2) main.tf changes
+resource &quot;aws_placement_group&quot; &quot;pg&quot; { name = &quot;lab-efa&quot;  strategy = &quot;cluster&quot; }
+
+resource &quot;aws_security_group_rule&quot; &quot;self_egress&quot; {
+  type = &quot;egress&quot;  from_port = 0  to_port = 0  protocol = &quot;-1&quot;
+  security_group_id = aws_security_group.gpu.id  source_security_group_id = aws_security_group.gpu.id
+}
+
+resource &quot;aws_instance&quot; &quot;gpu&quot; {
+  count           = 2
+  ami             = data.aws_ami.dlami.id
+  instance_type   = &quot;g4dn.12xlarge&quot;
+  placement_group = aws_placement_group.pg.id
+  iam_instance_profile = aws_iam_instance_profile.ssm.name
+  network_interface {
+    device_index         = 0
+    network_interface_id = aws_network_interface.efa[count.index].id
+  }
+  root_block_device { volume_size = 150  volume_type = &quot;gp3&quot; }
+  user_data = &quot;#!/bin/bash\nshutdown -h +180\n&quot;
+  instance_initiated_shutdown_behavior = &quot;terminate&quot;
+  tags = { Name = &quot;lab-efa-${count.index}&quot; }
+}
+resource &quot;aws_network_interface&quot; &quot;efa&quot; {
+  count           = 2
+  subnet_id       = data.aws_subnets.default.ids[0]
+  security_groups = [aws_security_group.gpu.id]
+  interface_type  = &quot;efa&quot;
+}
+output &quot;ids&quot; { value = aws_instance.gpu[*].id }
+output &quot;ips&quot; { value = aws_network_interface.efa[*].private_ip }</code></pre></div></section>
+<div class="callout info"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg><div><b>You should see.</b> Both nodes up; on each <code>fi_info -p efa -t FI_EP_RDM</code> lists the efa provider. Budget: run 2-3 hours, then <code>terraform destroy</code>.</div></div>
+<div class="complete-bar"><button class="btn primary" type="button" data-complete="S9" data-label="step"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span>Mark step complete</span></button></div>
+<nav class="pager"><a class="prev" href="../../setup/s8/"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span><small>Previous</small>S8 · Terraform: one GPU spot instance (environment G1 / G4)</span></a>
+<a class="next" href="../../setup/s10/"><span><small>Next</small>S10 · The nightly teardown habit (most important rule)</span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></a></nav>
+</article></div></main><footer class="foot"><div class="wrap foot-in">
+<div class="foot-brand"><b>Upskill AI Infra</b><p>A hands-on roadmap for learning GPU and AI infrastructure, from your first triage script to a cluster validation kit. Free and open; progress is saved only in your browser.</p></div>
+<div class="foot-cols">
+<div><h4>Learn</h4><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">All labs</a><a href="../../concepts/">Concepts</a></div>
+<div><h4>Prepare</h4><a href="../../interview/">Interview bank</a><a href="../../role/">The role</a><a href="../../resources/certifications/">Certifications</a></div>
+<div><h4>Help</h4><a href="../../resources/troubleshooting/">When you're stuck</a><a href="../../resources/glossary/">Glossary</a><a href="../../about/">About &amp; sources</a><a href="https://github.com/pushkar4844/upskill-ai-infra" target="_blank" rel="noopener">Source on GitHub</a></div>
+</div></div></footer>
+<script src="../../assets/js/app.js"></script>
+</body></html>

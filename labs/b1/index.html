@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B1 Build an XID decoder · Upskill AI Infra</title>
+<meta name="description" content="XID errors are how the NVIDIA driver reports GPU problems in the kernel log. You will build a tool that reads them and tells an operator what to do. No GPU needed.">
+<meta property="og:title" content="B1 Build an XID decoder · Upskill AI Infra"><meta property="og:description" content="XID errors are how the NVIDIA driver reports GPU problems in the kernel log. You will build a tool that reads them and tells an operator what to do. No GPU needed."><meta property="og:type" content="website">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/css/app.css">
+<script>try{var t=localStorage.getItem("uai-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body data-root="../../" data-page="lab">
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="top-in">
+<a class="brand" href="../../" aria-label="Upskill AI Infra home"><span class="logo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span>Upskill <b>AI Infra</b></span></a>
+<nav class="mainnav" id="mainnav" aria-label="Main"><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/" class="on" aria-current="page">Labs</a><a href="../../concepts/">Concepts</a><a href="../../interview/">Interview</a><a href="../../role/">The role</a><a href="../../resources/">Resources</a></nav>
+<div class="tools">
+<a class="iconbtn" href="../../search/" aria-label="Search" title="Search (/)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+<button class="iconbtn" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle theme"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+<button class="iconbtn menu-btn" type="button" aria-label="Menu" aria-controls="mainnav" aria-expanded="false" data-menu><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+</div></div></header><main id="main">
+<div class="lesson"><aside class="outline" aria-label="Phase outline"><div class="ol-in">
+<a class="ol-phase" href="../../roadmap/1-foundations/"><span class="pnum p1">1</span><span><small>Phase 1</small>Foundations</span></a>
+<div class="progress" data-prog="A1,B1,K1,C1,B2,D1,E1,F1,G1,H1" data-prog-label="labs"><div class="bar"><span></span></div><small data-prog-text>0 of 10 labs</small></div>
+<p class="ol-mod dom-A"><b>A</b>Linux and containers</p><ol class="ol-list"><li data-lab="A1" class=""><a href="../../labs/a1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">A1</span><span>The 60-second node triage drill</span></a></li></ol><p class="ol-mod dom-B"><b>B</b>GPU health and diagnostics</p><ol class="ol-list"><li data-lab="B1" class="cur"><a href="../../labs/b1/" aria-current="page"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">B1</span><span>Build an XID decoder</span></a></li><li data-lab="B2" class=""><a href="../../labs/b2/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">B2</span><span>DCGM diagnostics, levels 1 to 4</span></a></li></ol><p class="ol-mod dom-K"><b>K</b>LLM and training literacy</p><ol class="ol-list"><li data-lab="K1" class=""><a href="../../labs/k1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">K1</span><span>Transformer and cluster arithmetic</span></a></li></ol><p class="ol-mod dom-C"><b>C</b>Server hardware and topology</p><ol class="ol-list"><li data-lab="C1" class=""><a href="../../labs/c1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">C1</span><span>Draw the node from memory</span></a></li></ol><p class="ol-mod dom-D"><b>D</b>BMC and out-of-band</p><ol class="ol-list"><li data-lab="D1" class=""><a href="../../labs/d1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">D1</span><span>Redfish 101 on a mockup server</span></a></li></ol><p class="ol-mod dom-E"><b>E</b>RDMA and interconnect</p><ol class="ol-list"><li data-lab="E1" class=""><a href="../../labs/e1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">E1</span><span>RDMA from zero on Soft-RoCE</span></a></li></ol><p class="ol-mod dom-F"><b>F</b>NCCL and collectives</p><ol class="ol-list"><li data-lab="F1" class=""><a href="../../labs/f1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">F1</span><span>nccl-tests on one node and the busbw formula</span></a></li></ol><p class="ol-mod dom-G"><b>G</b>Slurm and provisioning</p><ol class="ol-list"><li data-lab="G1" class=""><a href="../../labs/g1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">G1</span><span>Slurm in Docker with fake GPUs</span></a></li></ol><p class="ol-mod dom-H"><b>H</b>Kubernetes for GPUs</p><ol class="ol-list"><li data-lab="H1" class=""><a href="../../labs/h1/"><span class="dot"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span><span class="lid">H1</span><span>GPU Operator on one node</span></a></li></ol>
+<a class="small ol-all" href="../../"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Full roadmap</a></div></aside>
+<article class="lesson-main">
+<nav class="crumbs" aria-label="Breadcrumb"><a href="../../">Roadmap</a><span class="sep" aria-hidden="true">›</span><a href="../../roadmap/1-foundations/">Phase 1</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">B1</span></nav>
+<header class="lesson-head">
+<div class="lh-tags"><span class="lid big">B1</span><a class="dtag dom-B" href="../../concepts/b-gpu-health-and-diagnostics/"><b>B</b>GPU health and diagnostics</a><span class="pill lv-beginner">Beginner</span><span class="pill core" title="Part of the shorter core path">Core</span><span class="done-badge" data-lab="B1"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Completed</span></div>
+<h1>Build an XID decoder</h1><p class="lead">XID errors are how the NVIDIA driver reports GPU problems in the kernel log. You will build a tool that reads them and tells an operator what to do. No GPU needed.</p>
+<dl class="facts">
+<div><dt>Where</dt><dd><span class="chip" title="Laptop (Windows + WSL2 Ubuntu)"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>L</span> Laptop (Windows + WSL2 Ubuntu)</dd></div>
+<div><dt>Time</dt><dd>5 hours</dd></div>
+<div><dt>Cost</dt><dd>$0</dd></div>
+<div><dt>Do first</dt><dd><a href="../../setup/s2/">S2</a></dd></div>
+</dl></header>
+<nav class="toc toc-inline" aria-label="On this page"><p>On this page</p><ol><li><a href="#why">Why it matters</a></li><li><a href="#done">What done looks like</a></li><li><a href="#steps">Hands-on steps</a></li><li><a href="#check">Check yourself</a></li><li><a href="#broke">If it breaks</a></li><li><a href="#finish">Commit and clean up</a></li><li><a href="#interview">Interview</a></li><li><a href="#deeper">Go deeper</a></li></ol></nav>
+
+<section id="why" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Why it matters</h2>
+<p>Solve problems involving GPUs, drivers, firmware and distributed system interactions.</p>
+
+<p class="small"><a href="../../concepts/b-gpu-health-and-diagnostics/"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>New to gpu health and diagnostics? Read the 5-minute primer first.</a></p>
+</section>
+
+<section id="done" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>What done looks like</h2>
+<div class="callout ok"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><div><b>Deliverable.</b> xidwatch.py with tests and the classification table.</div></div>
+<details class="more-box"><summary>The outcome, step by step (field manual version)</summary><ol class="msteps"><li>Read the XID catalog and tabulate these codes with meaning and action: 13, 31, 43, 45, 48, 62, 63, 64, 74, 79, 92, 94, 95, 119, 120.</li><li>Sort them into application-level (13, 31, 43), memory (48, 63, 64, 92, 94, 95), interconnect (74), bus (79) and firmware (119, 120).</li><li>Write <code>xidwatch.py</code> that follows <code>journalctl -k -f</code> for <code>NVRM: Xid</code>, maps each line to the table and prints severity plus recommended action.</li><li>Unit-test it with sample lines you write from the catalog format. No GPU needed.</li></ol></details>
+</section>
+
+<section id="steps" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Hands-on steps</h2>
+<ol class="steps"><li><div class="st-text">Open the NVIDIA XID catalog (link in Go deeper). Fill this starter table. Meanings below are the common ones - confirm each &#39;action&#39; against the catalog before you trust it.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>mkdir -p ~/gpu-lab/gpu-health &amp;&amp; cd ~/gpu-lab/gpu-health
+cat &gt; xid_table.json &lt;&lt;&#39;EOF&#39;
+{
+ &quot;13&quot;: {&quot;name&quot;: &quot;Graphics engine exception&quot;, &quot;cat&quot;: &quot;application&quot;, &quot;sev&quot;: &quot;low&quot;,  &quot;action&quot;: &quot;Usually app bug; check the job. Repeats on one GPU -&gt; run DCGM diag&quot;},
+ &quot;31&quot;: {&quot;name&quot;: &quot;GPU memory page fault&quot;,     &quot;cat&quot;: &quot;application&quot;, &quot;sev&quot;: &quot;low&quot;,  &quot;action&quot;: &quot;Illegal memory access by app; check app/driver&quot;},
+ &quot;43&quot;: {&quot;name&quot;: &quot;GPU stopped processing&quot;,    &quot;cat&quot;: &quot;application&quot;, &quot;sev&quot;: &quot;low&quot;,  &quot;action&quot;: &quot;App-level; restart job&quot;},
+ &quot;45&quot;: {&quot;name&quot;: &quot;Preemptive cleanup&quot;,        &quot;cat&quot;: &quot;application&quot;, &quot;sev&quot;: &quot;info&quot;, &quot;action&quot;: &quot;Follows a killed process; read the earlier XID&quot;},
+ &quot;48&quot;: {&quot;name&quot;: &quot;Double-bit ECC error&quot;,      &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Uncorrectable; drain, reset GPU, check retired/remapped rows&quot;},
+ &quot;62&quot;: {&quot;name&quot;: &quot;Internal micro-controller halt&quot;, &quot;cat&quot;: &quot;firmware&quot;, &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Reset GPU; repeated -&gt; RMA&quot;},
+ &quot;63&quot;: {&quot;name&quot;: &quot;Row remapping event&quot;,       &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;info&quot;, &quot;action&quot;: &quot;Recorded; reset GPU at next drain to apply&quot;},
+ &quot;64&quot;: {&quot;name&quot;: &quot;Row remapping failure&quot;,     &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Drain, reset; persistent -&gt; RMA&quot;},
+ &quot;74&quot;: {&quot;name&quot;: &quot;NVLink error&quot;,              &quot;cat&quot;: &quot;interconnect&quot;,&quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Check NVLink counters/fabric manager; reset; persistent -&gt; hardware&quot;},
+ &quot;79&quot;: {&quot;name&quot;: &quot;GPU has fallen off the bus&quot;,&quot;cat&quot;: &quot;bus&quot;,         &quot;sev&quot;: &quot;critical&quot;, &quot;action&quot;: &quot;Drain node, reboot host, check PCIe/power; escalate to vendor&quot;},
+ &quot;92&quot;: {&quot;name&quot;: &quot;High single-bit ECC rate&quot;,  &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;medium&quot;,&quot;action&quot;: &quot;Watch trend; schedule diag&quot;},
+ &quot;94&quot;: {&quot;name&quot;: &quot;Contained ECC error&quot;,       &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;medium&quot;,&quot;action&quot;: &quot;App killed, GPU OK; reset at drain&quot;},
+ &quot;95&quot;: {&quot;name&quot;: &quot;Uncontained ECC error&quot;,     &quot;cat&quot;: &quot;memory&quot;,      &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Drain and reset GPU&quot;},
+ &quot;119&quot;:{&quot;name&quot;: &quot;GSP RPC timeout&quot;,           &quot;cat&quot;: &quot;firmware&quot;,    &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Reset GPU / reboot; check driver version&quot;},
+ &quot;120&quot;:{&quot;name&quot;: &quot;GSP error&quot;,                 &quot;cat&quot;: &quot;firmware&quot;,    &quot;sev&quot;: &quot;high&quot;, &quot;action&quot;: &quot;Reset GPU / reboot; check driver version&quot;}
+}
+EOF</code></pre></div></li><li><div class="st-text">Write xidwatch.py. It reads kernel log lines from stdin (or a file), finds &#39;NVRM: Xid&#39;, and prints severity + action.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>cat &gt; xidwatch.py &lt;&lt;&#39;EOF&#39;
+#!/usr/bin/env python3
+&quot;&quot;&quot;Decode NVIDIA XID lines. Usage: journalctl -k -f | ./xidwatch.py   or   ./xidwatch.py &lt; sample.log&quot;&quot;&quot;
+import json, re, sys, pathlib
+TABLE = json.loads((pathlib.Path(__file__).parent / &quot;xid_table.json&quot;).read_text())
+PAT = re.compile(r&quot;NVRM: Xid \(PCI:(?P&lt;bdf&gt;[0-9a-fA-F:.]+)\): (?P&lt;xid&gt;\d+),?(?P&lt;rest&gt;.*)&quot;)
+
+def decode(line):
+    m = PAT.search(line)
+    if not m:
+        return None
+    xid = m.group(&quot;xid&quot;)
+    info = TABLE.get(xid, {&quot;name&quot;: &quot;unknown XID&quot;, &quot;cat&quot;: &quot;unknown&quot;, &quot;sev&quot;: &quot;check&quot;, &quot;action&quot;: &quot;Look up in NVIDIA XID catalog&quot;})
+    return {&quot;bdf&quot;: m.group(&quot;bdf&quot;), &quot;xid&quot;: int(xid), **info, &quot;detail&quot;: m.group(&quot;rest&quot;).strip()}
+
+if __name__ == &quot;__main__&quot;:
+    for line in sys.stdin:
+        d = decode(line)
+        if d:
+            print(f&quot;[{d[&#39;sev&#39;].upper():8}] GPU {d[&#39;bdf&#39;]} XID {d[&#39;xid&#39;]} {d[&#39;name&#39;]} ({d[&#39;cat&#39;]}) -&gt; {d[&#39;action&#39;]}&quot;, flush=True)
+EOF
+chmod +x xidwatch.py</code></pre></div></li><li><div class="st-text">Make sample log lines in the same shape the driver writes and test.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>cat &gt; sample.log &lt;&lt;&#39;EOF&#39;
+Oct 10 10:01:02 node7 kernel: NVRM: Xid (PCI:0000:3b:00): 79, pid=0, GPU has fallen off the bus.
+Oct 10 10:02:11 node7 kernel: NVRM: Xid (PCI:0000:5e:00): 48, pid=1234, An uncorrectable double bit error
+Oct 10 10:02:12 node7 kernel: NVRM: Xid (PCI:0000:5e:00): 63, pid=1234, Row remapping event
+Oct 10 10:03:00 node7 kernel: eth0: link up
+EOF
+./xidwatch.py &lt; sample.log</code></pre></div></li><li><div class="st-text">Add unit tests with pytest.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>python3 -m venv .venv &amp;&amp; . .venv/bin/activate &amp;&amp; pip install pytest
+cat &gt; test_xidwatch.py &lt;&lt;&#39;EOF&#39;
+from xidwatch import decode
+def test_79():
+    d = decode(&quot;kernel: NVRM: Xid (PCI:0000:3b:00): 79, pid=0, GPU has fallen off the bus.&quot;)
+    assert d[&quot;xid&quot;] == 79 and d[&quot;sev&quot;] == &quot;critical&quot; and d[&quot;bdf&quot;] == &quot;0000:3b:00&quot;
+def test_non_xid():
+    assert decode(&quot;eth0: link up&quot;) is None
+def test_unknown():
+    assert decode(&quot;NVRM: Xid (PCI:0000:01:00): 999, x&quot;)[&quot;cat&quot;] == &quot;unknown&quot;
+EOF
+pytest -q</code></pre></div></li><li><div class="st-text">Later, on a GPU instance (S8), run it live.</div><div class="code"><button class="copy" type="button" data-copy>Copy</button><pre><code>journalctl -k -f | ~/gpu-lab/gpu-health/xidwatch.py</code></pre></div></li></ol>
+<div class="callout info"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg><div><b>You should see.</b> ./xidwatch.py &lt; sample.log prints 3 lines: CRITICAL for 79, HIGH for 48, INFO for 63, and ignores the eth0 line. pytest: 3 passed.</div></div>
+</section>
+
+<section id="check" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>Check yourself</h2>
+<ul class="checklist"><li><label><input type="checkbox" data-verify="B1:0"><span>3 tests pass</span></label></li><li><label><input type="checkbox" data-verify="B1:1"><span>You can explain 79 vs 48 vs 63/64 from memory</span></label></li><li><label><input type="checkbox" data-verify="B1:2"><span>Unknown XIDs do not crash the tool</span></label></li></ul>
+</section>
+
+<section id="broke" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7V4M8 4l2 3M16 4l-2 3M3 13h4M17 13h4M4 19l3-2M20 19l-3-2"/></svg>If it breaks</h2>
+<div class="tscroll"><table class="brk"><thead><tr><th>Symptom</th><th>Fix</th></tr></thead><tbody><tr><td>Regex finds nothing on real logs</td><td>Print the raw line; some drivers write &#39;NVRM: Xid (PCI:0000:3b:00.0)&#39; - the pattern already allows &#39;.&#39; but check spacing</td></tr><tr><td>ModuleNotFoundError: xidwatch</td><td>Run pytest from the gpu-health folder</td></tr></tbody></table></div>
+<p class="small">Still stuck? Follow the <a href="../../resources/troubleshooting/">debug ladder</a>.</p></section>
+
+<section id="finish" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Commit and clean up</h2>
+<div class="split2"><div class="card"><h3>Commit to your repo</h3><p>gpu-health/xidwatch.py, xid_table.json, sample.log, test_xidwatch.py, notes/B1.md</p></div><div class="card warn"><h3>Clean up</h3><p>Nothing.</p></div></div>
+</section>
+
+<section id="interview" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/></svg>Interview</h2>
+<p class="q"><b>Be ready for:</b> Xid 79 appears in dmesg. What does it mean and what do you do? How does it differ from Xid 48 followed by 63 or 64?</p>
+<details class="ans"><summary>Show the answer you can now give</summary><p>XID 79 means the GPU dropped off PCIe - drain and reboot, check power/PCIe, escalate. 48 is an uncorrectable ECC error; 63 is a row-remap event that applies at next reset; 64 means the remap failed. I built a decoder that turns those log lines into actions.</p></details>
+</section>
+
+<section id="deeper" class="lsec"><h2><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 20a4 4 0 0 1 0-8h10"/></svg>Go deeper</h2>
+
+<div class="split2">
+<div><h3>Repositories</h3><ul class="reflist"><li><a href="https://github.com/NVIDIA/DCGM" target="_blank" rel="noopener">NVIDIA/DCGM<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a><span>exposes XID counters through fields and health watches</span></li><li><a href="https://github.com/NVIDIA/dcgm-exporter" target="_blank" rel="noopener">NVIDIA/dcgm-exporter<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a><span>XID metric for Prometheus</span></li></ul></div>
+<div><h3>Docs and reading</h3><ul class="reflist"><li><a href="https://docs.nvidia.com/deploy/pdf/XID_Errors.pdf" target="_blank" rel="noopener">NVIDIA XID Errors catalog (PDF)<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li><li><a href="https://docs.nvidia.com/deploy/gpu-debug-guidelines/pdf/GPU_Debug_Guidelines.pdf" target="_blank" rel="noopener">NVIDIA GPU Debug Guidelines (PDF)<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li><li><a href="https://www.repost.aws/knowledge-center/ec2-linux-troubleshoot-xid-errors" target="_blank" rel="noopener">AWS re:Post: troubleshoot Xid errors on EC2<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li><li><a href="https://www.netdata.cloud/guides/nvidia-gpu/nvidia-gpu-xid-errors/" target="_blank" rel="noopener">Netdata: reading NVIDIA XID errors<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a></li></ul></div>
+</div></section>
+
+<div class="complete-bar"><button class="btn primary" type="button" data-complete="B1"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg><span>Mark lab complete</span></button><span class="small muted">Saved in this browser.</span></div>
+<nav class="pager" aria-label="Lab navigation">
+<a class="prev" href="../../labs/a1/"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span><small>Previous</small>A1 · The 60-second node triage drill</span></a>
+<a class="next" href="../../labs/k1/"><span><small>Next</small>K1 · Transformer and cluster arithmetic</span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></a>
+</nav></article>
+<nav class="toc" aria-label="On this page"><p>On this page</p><ol><li><a href="#why">Why it matters</a></li><li><a href="#done">What done looks like</a></li><li><a href="#steps">Hands-on steps</a></li><li><a href="#check">Check yourself</a></li><li><a href="#broke">If it breaks</a></li><li><a href="#finish">Commit and clean up</a></li><li><a href="#interview">Interview</a></li><li><a href="#deeper">Go deeper</a></li></ol></nav>
+</div></main><footer class="foot"><div class="wrap foot-in">
+<div class="foot-brand"><b>Upskill AI Infra</b><p>A hands-on roadmap for learning GPU and AI infrastructure, from your first triage script to a cluster validation kit. Free and open; progress is saved only in your browser.</p></div>
+<div class="foot-cols">
+<div><h4>Learn</h4><a href="../../">Roadmap</a><a href="../../guide/">Study guide</a><a href="../../labs/">All labs</a><a href="../../concepts/">Concepts</a></div>
+<div><h4>Prepare</h4><a href="../../interview/">Interview bank</a><a href="../../role/">The role</a><a href="../../resources/certifications/">Certifications</a></div>
+<div><h4>Help</h4><a href="../../resources/troubleshooting/">When you're stuck</a><a href="../../resources/glossary/">Glossary</a><a href="../../about/">About &amp; sources</a><a href="https://github.com/pushkar4844/upskill-ai-infra" target="_blank" rel="noopener">Source on GitHub</a></div>
+</div></div></footer>
+<script src="../../assets/js/app.js"></script>
+</body></html>
