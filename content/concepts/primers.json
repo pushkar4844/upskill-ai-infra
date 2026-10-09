@@ -1,0 +1,191 @@
+{
+ "A": {
+  "summary": "Every GPU problem shows up first as a Linux symptom: a slow node, a missing device, a stuck process. You need a fixed order of checks and a clear picture of how a GPU reaches a container.",
+  "ideas": [
+   "USE method: for every resource (CPU, memory, disk, network, GPU) check utilization, saturation and errors. It turns 'the node is slow' into a checklist.",
+   "Low GPU utilization usually means the GPU is waiting: for data loading, host-to-device copies, CPU work or communication. Look at the CPU side before blaming the GPU.",
+   "A GPU reaches a container through the NVIDIA Container Toolkit: device nodes (/dev/nvidia*), host driver libraries and cgroup device rules are injected at start. CDI (Container Device Interface) is the newer, declarative way to describe them.",
+   "The kernel module and the user-space driver libraries must be the same version. 'Driver/library version mismatch' means one was upgraded without the other being reloaded.",
+   "Persistence mode (nvidia-persistenced) keeps the driver initialised, so the first CUDA call doesn't pay a multi-second start-up cost."
+  ],
+  "pitfalls": [
+   "Reading 'free' memory instead of 'available'",
+   "Upgrading the driver on a node without draining it first",
+   "Assuming the WSL2 virtual NIC behaves like a real one (use a VM for NIC and RDMA work)"
+  ],
+  "probe": "A node is slow: what do you run first, and what does each command rule out? Walk from kubectl apply to a GPU visible inside the pod."
+ },
+ "B": {
+  "summary": "GPU health is read from three places: kernel XID errors, ECC and row-remapping counters, and active diagnostics (DCGM, burn-in). Fleets combine passive monitoring with scheduled active tests.",
+  "ideas": [
+   "XID errors are the driver's error codes in the kernel log (NVRM: Xid ...). Some point to the application (13, 31, 43), some to memory (48, 63, 64, 92, 94, 95), NVLink (74), the PCIe bus (79) or GPU firmware (119, 120).",
+   "ECC: single-bit errors are corrected; double-bit errors are not. Modern data-center GPUs replace bad memory rows with row remapping, which takes effect after a GPU reset.",
+   "DCGM diagnostic levels: r1 is a seconds-long sanity check, r2 adds PCIe/NVLink and memory tests, r3 adds stress, power, bandwidth and NCCL plugins, r4 adds long memory tests. Use r1 at job start and r3 at acceptance.",
+   "Burn-in means hours of load while logging temperature, power, clocks and clock-event (throttle) reasons. Weak GPUs show up as clocks below their peers, not only as crashes.",
+   "Remediation ladder: reset the GPU, reboot the node, then RMA. Automation needs a circuit breaker so a fleet-wide event doesn't drain the whole cluster."
+  ],
+  "pitfalls": [
+   "Alerting on utilization instead of errors",
+   "Treating XID 63 (informational) like XID 79 (critical)",
+   "Remediating automatically with no limit on how many nodes can be drained at once"
+  ],
+  "probe": "XID 79 appears in dmesg: what does it mean and what do you do? What does DCGM r3 add over r2?"
+ },
+ "C": {
+  "summary": "Performance depends on where things sit: which CPU socket, which PCIe switch, which NIC. Topology decides whether data takes the short path or crosses the system.",
+  "ideas": [
+   "Read nvidia-smi topo -m: PIX/PXB means the same PCIe switch tree, PHB the same host bridge, NODE the same NUMA node, SYS crosses CPU sockets (slowest), NV# means NVLink.",
+   "NUMA: a GPU and its NIC belong to one CPU socket. A process or buffer on the other socket makes every copy cross the inter-socket link.",
+   "PCIe links can train down silently (x16 to x8, Gen5 to Gen3). Compare LnkCap with LnkSta under load and check AER error counters.",
+   "GPUDirect RDMA lets a NIC read and write GPU memory directly. It needs the GPU and NIC under the same root complex (ideally the same switch), IOMMU off or in pass-through, and the peer-memory module.",
+   "In HGX systems, eight GPUs connect through NVSwitch for all-to-all NVLink bandwidth inside the node; the NICs (usually one per GPU) carry traffic between nodes."
+  ],
+  "pitfalls": [
+   "Checking PCIe link speed while the GPU is idle (it downclocks)",
+   "Binding ranks to the wrong NUMA node",
+   "Expecting cloud VMs to expose every PCIe detail that bare metal does"
+  ],
+  "probe": "Draw an 8-GPU HGX node. A GPU shows half the expected PCIe bandwidth: what do you check?"
+ },
+ "D": {
+  "summary": "The BMC is a small independent computer on the server board. It lets you see and control the machine when the OS is down, which is most of early bring-up.",
+  "ideas": [
+   "The BMC has its own network port and power. It reports sensors (temperature, fans, power supplies), keeps the System Event Log (SEL), gives a serial console and can power-cycle the host.",
+   "IPMI is the older binary protocol. Redfish is HTTPS + JSON with a published schema, sessions and eventing, which is why large fleets automate with it.",
+   "Redfish tree: /redfish/v1/Systems (the host), Chassis (thermal, power), Managers (the BMC), UpdateService (firmware), with LogServices for event logs.",
+   "Fleet hygiene: one golden BIOS/firmware baseline per platform, drift detection over Redfish, staged remediation in maintenance windows.",
+   "OCP's diagnostic output format standardises test results across vendors, the kind of detail hyperscaler hardware teams care about."
+  ],
+  "pitfalls": [
+   "Leaving default BMC credentials or exposing BMCs on a routable network",
+   "Assuming attribute names are the same across server vendors",
+   "Reading GPU temperatures without inlet temperatures (cooling vs workload)"
+  ],
+  "probe": "IPMI vs Redfish: what changed and why? Rack 14 has hot GPUs: how do you prove it is cooling and not workload?"
+ },
+ "E": {
+  "summary": "Training moves huge buffers between GPUs every step. RDMA fabrics (InfiniBand, RoCE, AWS EFA) do it without CPU copies; their design and congestion control decide how well jobs scale.",
+  "ideas": [
+   "RDMA lets a NIC read or write remote memory directly. Core objects: queue pairs (QP), registered memory regions (MR), protection domains (PD) and completion queues (CQ).",
+   "InfiniBand uses credit-based, lossless link-level flow control and a subnet manager. RoCEv2 runs RDMA over UDP (port 4791) on Ethernet and relies on PFC, ECN and DCQCN to avoid loss and congestion.",
+   "AWS EFA exposes its SRD transport through libfabric; NCCL reaches it through the aws-ofi-nccl plugin. Security groups must allow all traffic to and from themselves.",
+   "Rail-optimised networks connect NIC k of every node to the same leaf switches, so same-rank traffic stays one hop away; cross-rail traffic uses NVLink inside the node.",
+   "Health signals: symbol errors, link-downed counts, receive errors, transmit discards and wait counters. Rising counters on one link point to a cable, transceiver or port."
+  ],
+  "pitfalls": [
+   "Comparing Soft-RoCE numbers with real NIC numbers (it's a concept lab)",
+   "NCCL silently falling back to TCP sockets",
+   "Ignoring oversubscription when sizing spine switches"
+  ],
+  "probe": "Explain RDMA to a cloud engineer in 60 seconds. NCCL falls back to sockets on an EFA cluster: first three checks?"
+ },
+ "F": {
+  "summary": "NCCL is the library that moves data between GPUs. Its benchmark numbers are the clearest health signal for a training cluster, if you know how to read them.",
+  "ideas": [
+   "Collectives: all-reduce (sum gradients across ranks), all-gather, reduce-scatter, all-to-all (expert parallelism), broadcast.",
+   "algbw = bytes / time. busbw corrects for the algorithm so it is comparable to link bandwidth whatever the rank count: all-reduce x 2(n-1)/n, all-gather and reduce-scatter x (n-1)/n.",
+   "Ring algorithms suit large messages; tree algorithms cut latency at scale. NCCL picks automatically, and NCCL_ALGO lets you compare.",
+   "NCCL_DEBUG=INFO shows which transport and NIC it chose (NVLink, P2P, NET/IB, NET/OFI for EFA, Socket). Always check it before trusting a number.",
+   "Collectives move at the speed of the slowest rank: one straggler slows everyone, one dead rank hangs everyone until a timeout fires."
+  ],
+  "pitfalls": [
+   "Quoting small-message busbw as the cluster's bandwidth",
+   "Benchmarking without checking the transport in NCCL_DEBUG",
+   "No timeout, so a dead rank hangs a job for hours"
+  ],
+  "probe": "algbw vs busbw: why does busbw exist? busbw drops going from 2 to 4 nodes: where do you look?"
+ },
+ "G": {
+  "summary": "Most large training clusters run Slurm; many companies run Kubernetes or both. You need to operate Slurm, keep bad nodes out of the queue and know how servers become nodes in the first place.",
+  "ideas": [
+   "Slurm: slurmctld (controller), slurmd (per node), partitions, sbatch/srun/squeue/sacct. GPUs are generic resources (GRES) declared in gres.conf.",
+   "With cgroup ConstrainDevices a job sees only its allocated GPUs (exposed through CUDA_VISIBLE_DEVICES).",
+   "Prolog, epilog and Node Health Check (NHC) drain unhealthy nodes before jobs land on them.",
+   "Pyxis + Enroot let Slurm jobs run containers unprivileged (srun --container-image).",
+   "Provisioning: BMC power-on, PXE/iPXE boot, image, config management, burn-in, then join the scheduler. Tools: Warewulf, MAAS, Ironic, Metal3, Tinkerbell."
+  ],
+  "pitfalls": [
+   "gres.conf and the NodeName line disagreeing on GPU count",
+   "Health checks that only run at boot",
+   "Picking Slurm vs Kubernetes on taste instead of on users, tenancy and operations"
+  ],
+  "probe": "How does Slurm keep one job's GPUs invisible to another? A customer asks Slurm or Kubernetes for training: how do you answer?"
+ },
+ "H": {
+  "summary": "On Kubernetes, GPUs arrive through operators and device APIs. The hard parts are sharing GPUs, scheduling whole jobs at once, giving pods RDMA, and remediating bad nodes safely.",
+  "ideas": [
+   "The GPU Operator installs driver (optional), container toolkit, device plugin, GPU feature discovery, DCGM exporter and validators as DaemonSets.",
+   "The device plugin advertises a count (nvidia.com/gpu). Dynamic Resource Allocation (GA since Kubernetes v1.34) lets claims select devices by attributes and handle groups such as NVLink domains.",
+   "Sharing: time-slicing (no isolation), MPS (concurrent kernels, limited isolation), MIG (hardware partitions of memory and compute on A100/H100-class GPUs).",
+   "Distributed jobs need gang scheduling: start all pods or none. Kueue provides quota, borrowing and all-or-nothing admission (API v1beta2 since v0.20); KAI Scheduler and Volcano are alternatives.",
+   "The Network Operator plus Multus and an RDMA device plugin give pods a secondary RDMA interface; Node Problem Detector plus a remediator handle bad nodes."
+  ],
+  "pitfalls": [
+   "Time-slicing for tenants that need isolation",
+   "Partial gang starts that hold GPUs and deadlock the queue",
+   "Remediation without a maxUnhealthy limit"
+  ],
+  "probe": "What does the GPU Operator install, and in what order? Two teams share 256 GPUs: how do you enforce quota and avoid deadlock?"
+ },
+ "I": {
+  "summary": "Customers rent GPUs from clouds. Knowing what each cloud really gives you (NICs per GPU, fabric, placement, quotas, storage) is what separates a cloud-aware architect from a hardware specialist.",
+  "ideas": [
+   "The same GPU can perform differently across clouds: NIC count and speed per GPU, fabric type and NCCL plugin, rail design and placement all matter.",
+   "Capacity is a project in itself: quotas, capacity reservations or blocks, placement groups and per-zone limits come before any Terraform.",
+   "Storage tiers: object store (source of truth), local NVMe (cache), parallel file system (shared high throughput). Model load and checkpoint time are storage problems.",
+   "Large rollouts go in waves with entry and exit criteria, a spare pool and a rollback plan."
+  ],
+  "pitfalls": [
+   "Requesting the Spot quota when you launch On-Demand (they are separate)",
+   "Spreading one training job across zones",
+   "Forgetting checkpoint write time when sizing storage"
+  ],
+  "probe": "Why do two clouds with the same GPU give different all-reduce numbers? You have four weeks to bring up 1,024 GPUs: what is your plan?"
+ },
+ "J": {
+  "summary": "Observability for GPU fleets means the right metrics, the right alerts and the ability to turn failure data into decisions.",
+  "ideas": [
+   "dcgm-exporter publishes DCGM fields to Prometheus: utilization, memory, power, temperature, XID errors, NVLink counters and profiling metrics (SM activity, tensor-core activity).",
+   "Utilization is not efficiency. A GPU can show 100% 'utilization' while doing little useful work; profiling metrics and MFU tell the truth.",
+   "Alert on XID errors, uncorrectable ECC and row-remap failures, missing GPUs, throttling and NVLink errors.",
+   "Fleet metrics: failures per 1,000 GPU-days, mean time between interruptions, time to repair, cohorted by rack, firmware, driver and hardware batch."
+  ],
+  "pitfalls": [
+   "Dashboards with no alert rules",
+   "Not mapping GPU metrics to jobs or tenants",
+   "Reporting averages that hide one bad rack"
+  ],
+  "probe": "Which three GPU metrics do you alert on, and why not utilization alone? How do you tell a bad GPU batch from a bad rack?"
+ },
+ "K": {
+  "summary": "You don't need to train models, but you must do the arithmetic and speak the workload's language: memory, compute, parallelism and serving metrics.",
+  "ideas": [
+   "Training memory with mixed precision and Adam is about 16 bytes per parameter before activations: a 70B model needs about 1.1 TB of state.",
+   "KV cache per token = 2 x layers x KV heads x head dimension x bytes. It grows with context and concurrency and usually sets the serving batch size.",
+   "Training compute is about 6 x parameters x tokens FLOPs. MFU (model FLOPs utilisation) = achieved / peak; 35-50% is typical for well-tuned large jobs.",
+   "Parallelism: data parallel / FSDP shards state, tensor parallel splits layers (needs NVLink), pipeline parallel splits stages, expert parallel uses all-to-all.",
+   "Serving metrics: time to first token (prefill), inter-token latency (decode), throughput. Disaggregated serving puts prefill and decode on separate GPUs and moves the KV cache over the fabric."
+  ],
+  "pitfalls": [
+   "Tensor parallelism across PCIe-only GPUs",
+   "Ignoring checkpoint cost when estimating useful training time",
+   "Quoting tokens/s without the batch size and context length"
+  ],
+  "probe": "Can a 70B model train on one 8x80 GB node? Show the maths. MFU is 25%: where do you look?"
+ },
+ "L": {
+  "summary": "The capstone turns 48 labs into one story you can tell in ten minutes, backed by a public repository.",
+  "ideas": [
+   "One command builds, validates and tears down a cluster and writes a dated report against a criteria file.",
+   "Injected failures prove the kit works: a simulated XID, EFA disabled, wrong NUMA binding, a power-capped straggler.",
+   "The README sells it: architecture diagram, results, cost per run, and what changes at 2,000 GPUs.",
+   "Public proof (posts, pull requests, a talk) shows you can communicate, which the posting stresses as much as skill."
+  ],
+  "pitfalls": [
+   "A repo that only works on your laptop",
+   "Results with no thresholds or explanation",
+   "Leaving cloud resources running after the demo"
+  ],
+  "probe": "Walk me through your validation kit: what it checks, what it caught and what a run costs."
+ }
+}

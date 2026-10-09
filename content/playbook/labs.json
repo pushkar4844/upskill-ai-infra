@@ -73,7 +73,7 @@
   "before": "S2",
   "steps": [
    {
-    "text": "Open the NVIDIA XID catalog (link in gpu.html B1). Fill this starter table. Meanings below are the common ones - confirm each 'action' against the catalog before you trust it.",
+    "text": "Open the NVIDIA XID catalog (link in Go deeper). Fill this starter table. Meanings below are the common ones - confirm each 'action' against the catalog before you trust it.",
     "code": "mkdir -p ~/gpu-lab/gpu-health && cd ~/gpu-lab/gpu-health\ncat > xid_table.json <<'EOF'\n{\n \"13\": {\"name\": \"Graphics engine exception\", \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"Usually app bug; check the job. Repeats on one GPU -> run DCGM diag\"},\n \"31\": {\"name\": \"GPU memory page fault\",     \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"Illegal memory access by app; check app/driver\"},\n \"43\": {\"name\": \"GPU stopped processing\",    \"cat\": \"application\", \"sev\": \"low\",  \"action\": \"App-level; restart job\"},\n \"45\": {\"name\": \"Preemptive cleanup\",        \"cat\": \"application\", \"sev\": \"info\", \"action\": \"Follows a killed process; read the earlier XID\"},\n \"48\": {\"name\": \"Double-bit ECC error\",      \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Uncorrectable; drain, reset GPU, check retired/remapped rows\"},\n \"62\": {\"name\": \"Internal micro-controller halt\", \"cat\": \"firmware\", \"sev\": \"high\", \"action\": \"Reset GPU; repeated -> RMA\"},\n \"63\": {\"name\": \"Row remapping event\",       \"cat\": \"memory\",      \"sev\": \"info\", \"action\": \"Recorded; reset GPU at next drain to apply\"},\n \"64\": {\"name\": \"Row remapping failure\",     \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Drain, reset; persistent -> RMA\"},\n \"74\": {\"name\": \"NVLink error\",              \"cat\": \"interconnect\",\"sev\": \"high\", \"action\": \"Check NVLink counters/fabric manager; reset; persistent -> hardware\"},\n \"79\": {\"name\": \"GPU has fallen off the bus\",\"cat\": \"bus\",         \"sev\": \"critical\", \"action\": \"Drain node, reboot host, check PCIe/power; escalate to vendor\"},\n \"92\": {\"name\": \"High single-bit ECC rate\",  \"cat\": \"memory\",      \"sev\": \"medium\",\"action\": \"Watch trend; schedule diag\"},\n \"94\": {\"name\": \"Contained ECC error\",       \"cat\": \"memory\",      \"sev\": \"medium\",\"action\": \"App killed, GPU OK; reset at drain\"},\n \"95\": {\"name\": \"Uncontained ECC error\",     \"cat\": \"memory\",      \"sev\": \"high\", \"action\": \"Drain and reset GPU\"},\n \"119\":{\"name\": \"GSP RPC timeout\",           \"cat\": \"firmware\",    \"sev\": \"high\", \"action\": \"Reset GPU / reboot; check driver version\"},\n \"120\":{\"name\": \"GSP error\",                 \"cat\": \"firmware\",    \"sev\": \"high\", \"action\": \"Reset GPU / reboot; check driver version\"}\n}\nEOF"
    },
    {
@@ -140,7 +140,7 @@
     "code": "N, D = 8e9, 1e12\nflops = 6 * N * D                  # 4.8e22\npeak = 989e12                      # H100 dense BF16 FLOP/s (spec sheet)\nmfu = 0.40\ngpu_days = flops / (peak*mfu) / 86400\nprint(f'{gpu_days:,.0f} GPU-days -> {gpu_days/1024:.1f} days on 1,024 GPUs')"
    },
    {
-    "text": "Read the two books linked in gpu.html K1 (JAX scaling book: roofline + transformer chapters; HF Ultra-Scale Playbook). Add one markdown cell per chapter: 3 bullets in your own words.",
+    "text": "Read the two books linked in Go deeper (JAX scaling book: roofline + transformer chapters; HF Ultra-Scale Playbook). Add one markdown cell per chapter: 3 bullets in your own words.",
     "code": null
    },
    {
@@ -191,7 +191,7 @@
     "code": "aws s3 cp ~/topo s3://<your-lab-bucket>/topo/ --recursive   # needs s3 permission on the role; or just cat and copy"
    },
    {
-    "text": "Draw it (draw.io or Excalidraw): sockets, NUMA nodes, PCIe switches, GPUs, NICs. Write 3 rules, e.g. 'rank on GPU0 binds to NUMA 0 and NIC X'. Compare with the DGX/HGX H100 diagram from the SuperPOD docs (gpu.html C1) - learn that picture too.",
+    "text": "Draw it (draw.io or Excalidraw): sockets, NUMA nodes, PCIe switches, GPUs, NICs. Write 3 rules, e.g. 'rank on GPU0 binds to NUMA 0 and NIC X'. Compare with the DGX/HGX H100 diagram from the SuperPOD docs (Go deeper) - learn that picture too.",
     "code": null
    },
    {
@@ -234,15 +234,15 @@
     "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply\naws ssm start-session --target $(terraform output -raw id)\nsudo -iu ubuntu; nvidia-smi"
    },
    {
-    "text": "Install DCGM from NVIDIA's CUDA repo. DCGM 4 package name shown; if apt can't find it, run 'apt search datacenter-gpu-manager' and pick the one for your CUDA major version.",
-    "code": "dpkg -l | grep -i cuda-keyring || { wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && sudo dpkg -i cuda-keyring_1.1-1_all.deb; }\nsudo apt update\nsudo apt install -y datacenter-gpu-manager-4-cuda12   # DCGM 4 (or: datacenter-gpu-manager for DCGM 3)\nsudo systemctl enable --now nvidia-dcgm\ndcgmi discovery -l"
+    "text": "Check DCGM. The Deep Learning Base AMI already includes DCGM 4, so this usually just starts the service. If `dcgmi` is missing (plain Ubuntu), install the package that matches your driver's CUDA major version, as NVIDIA's DCGM guide does.",
+    "code": "dcgmi --version || {\n  CUDA_VERSION=$(nvidia-smi -q | sed -E -n 's/CUDA Version[ :]+([0-9]+)[.].*/\\1/p')\n  sudo apt-get update\n  sudo apt-get install -y --install-recommends datacenter-gpu-manager-4-cuda${CUDA_VERSION}\n}\nsudo systemctl --now enable nvidia-dcgm\ndcgmi discovery -l"
    },
    {
     "text": "Run levels 1, 2, 3 and save JSON. Time each one.",
     "code": "mkdir -p ~/dcgm && cd ~/dcgm\nfor r in 1 2 3; do /usr/bin/time -f \"r$r %e s\" dcgmi diag -r $r -j > r$r.json; done\njq 'keys' r1.json      # look at the structure before parsing"
    },
    {
-    "text": "Read which plugins each level adds (gpu.html B2 lists them). Optional: r4 takes hours - skip on a T4 unless you want the experience.",
+    "text": "Read which plugins each level adds (the DCGM docs in Go deeper list them). Optional: r4 takes hours - skip on a T4 unless you want the experience.",
     "code": null
    },
    {
@@ -260,7 +260,7 @@
   ],
   "expect": "discovery lists 1 GPU. r1 finishes in seconds, r2 in minutes, r3 tens of minutes on a T4. All tests Pass on a healthy GPU.",
   "verify": [
-   "Timing table r1/r2/r3 vs documented Hopper figures (gpu.html B2)",
+   "Timing table r1/r2/r3 vs documented Hopper figures (Go deeper)",
    "Parser prints pass/fail per test",
    "You can say what r3 adds over r2"
   ],
@@ -270,12 +270,12 @@
     "fix": "sudo systemctl status nvidia-dcgm; start it; or run nv-hostengine manually"
    },
    {
-    "symptom": "Package not found",
-    "fix": "apt search datacenter-gpu-manager; make sure cuda-keyring for ubuntu2204 is installed"
-   },
-   {
     "symptom": "Diag skips tests 'not supported'",
     "fix": "Some plugins need specific GPUs/NVLink - note it, that's a finding"
+   },
+   {
+    "symptom": "Package not found",
+    "fix": "The CUDA apt repo must be configured first (NVIDIA CUDA installation guide). On Maxwell/Pascal/Volta GPUs with driver 580 use the -cuda12 package"
    }
   ],
   "commit": "gpu-health/dcgm_report.py, results/dcgm/<gpu>-r1..r3.json, notes/B2.md with timing table",
@@ -309,7 +309,7 @@
     "code": "git clone https://github.com/DMTF/Redfish-Service-Validator && cd Redfish-Service-Validator\npip install -r requirements.txt\npython3 RedfishServiceValidator.py --help | head -30\npython3 RedfishServiceValidator.py --ip http://localhost:8000   # flag name per --help"
    },
    {
-    "text": "Read the IPMI vs Redfish comparison in the DMTF docs (gpu.html D1) and write 5 bullets.",
+    "text": "Read the IPMI vs Redfish comparison in the DMTF docs (Go deeper) and write 5 bullets.",
     "code": null
    }
   ],
@@ -469,16 +469,16 @@
   "before": "S3",
   "steps": [
    {
-    "text": "Clone and start the containerized cluster (follow the repo README if commands differ).",
-    "code": "cd ~/gpu-lab/slurm && git clone https://github.com/giovtorres/slurm-docker-cluster && cd slurm-docker-cluster\ndocker compose build      # first build takes a while\ndocker compose up -d\ndocker compose ps"
+    "text": "Clone and start the cluster. Version 3.0 of the repo uses make targets and offers a prebuilt image.",
+    "code": "cd ~/gpu-lab/slurm && git clone https://github.com/giovtorres/slurm-docker-cluster && cd slurm-docker-cluster\ncp .env.example .env\nmake build        # or pull the prebuilt image (see README for the tag step)\nmake up\nmake status"
    },
    {
-    "text": "Daily commands.",
-    "code": "docker exec -it slurmctld bash\nsinfo\nsrun -N2 hostname\nsbatch --wrap='sleep 60; hostname' -N1\nsqueue\nscontrol show job <id>\nscancel <id>\nsacct --format=JobID,JobName,State,Elapsed,NodeList"
+    "text": "Daily commands, from a shell on the controller.",
+    "code": "make shell        # opens a shell in slurmctld\nsinfo\nsrun -N2 hostname\nsbatch --wrap='sleep 60; hostname' -N1\nsqueue\nscontrol show job <id>\nscancel <id>\nsacct --format=JobID,JobName,State,Elapsed,NodeList\nmake run-examples # the repo's sample jobs"
    },
    {
-    "text": "Declare fake GPUs. Find where the repo keeps slurm.conf (README / docker-compose volumes). Add GresTypes and Gres to the node line, create gres.conf, and create fake device files on each compute container.",
-    "code": "# in slurm.conf\nGresTypes=gpu\nNodeName=c[1-2] ... Gres=gpu:2          # append Gres=gpu:2 to the existing NodeName line\n\n# gres.conf (same folder as slurm.conf)\nNodeName=c[1-2] Name=gpu File=/dev/nvidia[0-1]\n\n# on each compute container\ndocker exec c1 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\ndocker exec c2 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\ndocker compose restart\ndocker exec -it slurmctld bash -c 'scontrol show node c1 | grep -i gres'"
+    "text": "Declare fake GPUs. Edit the config in the repo's config/<version>/ folder, push it into the running cluster, and create fake device files on each compute container (c1, c2).",
+    "code": "# config/<version>/slurm.conf\nGresTypes=gpu\nNodeName=c[1-2] ... Gres=gpu:2          # append Gres=gpu:2 to the existing NodeName line\n\n# config/<version>/gres.conf\nNodeName=c[1-2] Name=gpu File=/dev/nvidia[0-1]\n\ndocker exec c1 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\ndocker exec c2 bash -c 'touch /dev/nvidia0 /dev/nvidia1'\nmake update-slurm FILES=\"slurm.conf gres.conf\"\nmake reload-slurm\ndocker exec slurmctld scontrol show node c1 | grep -i gres"
    },
    {
     "text": "Request GPUs and see what the job gets.",
@@ -487,6 +487,10 @@
    {
     "text": "Write a tiny prolog health check (concept for G2): a script that exits non-zero drains the node.",
     "code": "cat > prolog.sh <<'EOF'\n#!/bin/bash\n# fail if expected GPU device files are missing\nfor d in /dev/nvidia0 /dev/nvidia1; do [ -e $d ] || { echo \"missing $d\"; exit 1; }; done\nexit 0\nEOF\n# add Prolog=/path/prolog.sh to slurm.conf, restart, then delete /dev/nvidia1 on c2 and submit a job - c2 should drain\n# sinfo -R shows the reason"
+   },
+   {
+    "text": "Optional, on a machine with an NVIDIA GPU: the repo can add a real GPU worker (g1). Set GPU_ENABLE=true in .env, then run make rebuild and make test-gpu.",
+    "code": null
    }
   ],
   "expect": "sinfo shows partition with 2 nodes idle. srun --gres=gpu:1 prints CUDA_VISIBLE_DEVICES=0. A 3-GPU request cannot run. After breaking c2's device file, c2 goes DRAIN.",
@@ -497,16 +501,16 @@
   ],
   "broke": [
    {
-    "symptom": "Gres errors at slurmd start",
-    "fix": "Device files must exist before slurmd starts; NodeName line and gres.conf must agree on count"
+    "symptom": "Gres errors when slurmd starts",
+    "fix": "Device files must exist before slurmd starts, and the NodeName line and gres.conf must agree on the count"
    },
    {
     "symptom": "Config changes ignored",
-    "fix": "Find which file the container actually mounts (docker inspect) and restart all services"
+    "fix": "Use make update-slurm FILES=... then make reload-slurm; make rebuild makes changes permanent"
    }
   ],
   "commit": "slurm/README.md (cookbook), slurm/gres.conf, slurm/prolog.sh, notes/G1.md",
-  "cleanup": "docker compose down",
+  "cleanup": "make down",
   "interview": "Slurm declares GPUs as GRES in gres.conf; with cgroup device constraints a job sees only the GPUs it was allocated, exposed via CUDA_VISIBLE_DEVICES. Prolog/epilog health checks drain bad nodes before jobs land on them."
  },
  {
@@ -524,7 +528,7 @@
     "code": "cd ~/gpu-lab/infra/gpu1 && terraform apply\naws ssm start-session --target $(terraform output -raw id); sudo -iu ubuntu\ncurl -sfL https://get.k3s.io | sh -\nsudo chmod 644 /etc/rancher/k3s/k3s.yaml && echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc && source ~/.bashrc\ncurl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash\nkubectl get nodes"
    },
    {
-    "text": "Install the GPU Operator. The DL AMI already has the driver, so turn off the driver container. k3s uses its own containerd paths - check the GPU Operator docs ('Getting started' > K3s) for the current values.",
+    "text": "Install the GPU Operator. The DL AMI already has the driver, so turn off the driver container. k3s uses its own containerd paths - check the GPU Operator docs ('Getting started' > K3s) for the current values. Recent GPU Operator releases (v26.x) need containerd 2.0 and restart containerd when they apply config, so expect a short blip.",
     "code": "helm repo add nvidia https://helm.ngc.nvidia.com/nvidia && helm repo update\nhelm install gpu-operator nvidia/gpu-operator -n gpu-operator --create-namespace --wait \\\n  --set driver.enabled=false \\\n  --set toolkit.env[0].name=CONTAINERD_CONFIG --set toolkit.env[0].value=/var/lib/rancher/k3s/agent/etc/containerd/config.toml \\\n  --set toolkit.env[1].name=CONTAINERD_SOCKET --set toolkit.env[1].value=/run/k3s/containerd/containerd.sock\nkubectl get pods -n gpu-operator -w      # wait until all Running/Completed"
    },
    {
@@ -562,6 +566,10 @@
    {
     "symptom": "Image tag not found",
     "fix": "Pick any current tag from nvcr.io/nvidia/cuda on NGC"
+   },
+   {
+    "symptom": "Toolkit pod ignores CONTAINERD_SOCKET on k3s",
+    "fix": "Reported issue: check the toolkit DaemonSet hostPath for the socket directory and point it at /run/k3s/containerd"
    }
   ],
   "commit": "k8s/gpu-operator-values.yaml, k8s/cuda-pod.yaml, k8s/operator-components.png, notes/H1.md",
@@ -959,7 +967,7 @@
  {
   "id": "E2",
   "level": "Intermediate",
-  "title": "EFA on AWS, validated the way ProServe would",
+  "title": "EFA on AWS, validated like a field engineer would",
   "env": "G2N",
   "hours": 10,
   "cost": "~$15-25",
@@ -987,7 +995,7 @@
     "code": "cat > ~/hosts <<EOF\n<node0_ip> slots=4\n<node1_ip> slots=4\nEOF\n/opt/amazon/openmpi/bin/mpirun -n 8 -N 4 --hostfile ~/hosts --bind-to none \\\n  -x FI_PROVIDER=efa -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \\\n  ~/nccl-tests/build/all_reduce_perf -b 8 -e 2G -f 2 -g 1 2>&1 | tee ~/efa-ar.txt\ngrep -iE 'NET/OFI|Selected provider|Using network' ~/efa-ar.txt | head"
    },
    {
-    "text": "Version matrix: EFA installer, libfabric (fi_info --version), aws-ofi-nccl, NCCL (from NCCL INFO line), driver, CUDA. Compare with the HyperPod validation doc (gpu.html E2).",
+    "text": "Version matrix: EFA installer, libfabric (fi_info --version), aws-ofi-nccl, NCCL (from NCCL INFO line), driver, CUDA. Compare with the HyperPod validation doc (Go deeper).",
     "code": null
    },
    {
@@ -1025,7 +1033,7 @@
   "before": "E1",
   "steps": [
    {
-    "text": "Read NVIDIA UFM 'InfiniBand diagnostic utilities' (gpu.html E3). Table: ibstat, ibstatus, iblinkinfo, ibnetdiscover, perfquery, ibdiagnet, ibping - what each shows, when to use it.",
+    "text": "Read NVIDIA UFM 'InfiniBand diagnostic utilities' (Go deeper). Table: ibstat, ibstatus, iblinkinfo, ibnetdiscover, perfquery, ibdiagnet, ibping - what each shows, when to use it.",
     "code": null
    },
    {
@@ -1118,7 +1126,7 @@
     "code": "# -x NCCL_ALGO=Ring|Tree   -x NCCL_MIN_NCHANNELS=..   -x NCCL_SOCKET_IFNAME=ens5"
    },
    {
-    "text": "Read aws-samples/awsome-distributed-training micro-benchmarks and their Slurm launch scripts (gpu.html F2) - that's how it's done at scale.",
+    "text": "Read aws-samples/awsome-distributed-training micro-benchmarks and their Slurm launch scripts (Go deeper) - that's how it's done at scale.",
     "code": null
    },
    {
@@ -1167,7 +1175,7 @@
     "code": "pip install py-spy && sudo ~/v/bin/py-spy dump --pid <pid>"
    },
    {
-    "text": "Read nvidia-resiliency-ext straggler detection and torchft docs (gpu.html F3); try their example if time allows.",
+    "text": "Read nvidia-resiliency-ext straggler detection and torchft docs (Go deeper); try their example if time allows.",
     "code": null
    },
    {
@@ -1263,7 +1271,7 @@
     "code": null
    },
    {
-    "text": "Read Azure CycleCloud Slurm + azurehpc-health-checks and Google Cluster Toolkit blueprints (gpu.html G3/I1). Fill the matrix: provisioning tool, image, scheduler, interconnect, storage, health tooling.",
+    "text": "Read Azure CycleCloud Slurm + azurehpc-health-checks and Google Cluster Toolkit blueprints (Go deeper). Fill the matrix: provisioning tool, image, scheduler, interconnect, storage, health tooling.",
     "code": null
    },
    {
@@ -1416,22 +1424,22 @@
   "steps": [
    {
     "text": "kind cluster + KWOK (fake nodes). Use the latest release tag from the KWOK GitHub page.",
-    "code": "kind create cluster --name sched\nKWOK=v0.6.1   # check latest\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/kwok.yaml\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/stage-fast.yaml"
+    "code": "kind create cluster --name sched\nKWOK=$(curl -s https://api.github.com/repos/kubernetes-sigs/kwok/releases/latest | jq -r .tag_name)   # v0.8.0 on Oct 8, 2026\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/kwok.yaml\nkubectl apply -f https://github.com/kubernetes-sigs/kwok/releases/download/$KWOK/stage-fast.yaml"
    },
    {
     "text": "Create 16 fake 8-GPU nodes in 2 racks.",
     "code": "for i in $(seq 1 16); do rack=$(( (i-1)/8 )); cat <<EOF | kubectl apply -f -\napiVersion: v1\nkind: Node\nmetadata:\n  name: gpu-$i\n  annotations: { kwok.x-k8s.io/node: fake }\n  labels: { type: kwok, topology.kubernetes.io/zone: rack-$rack, nvidia.com/gpu.product: H100 }\nspec:\n  taints: [{ key: kwok.x-k8s.io/node, value: fake, effect: NoSchedule }]\nstatus:\n  allocatable: { cpu: \"96\", memory: 1Ti, pods: \"110\", nvidia.com/gpu: \"8\" }\n  capacity:    { cpu: \"96\", memory: 1Ti, pods: \"110\", nvidia.com/gpu: \"8\" }\nEOF\ndone\nkubectl get nodes"
    },
    {
-    "text": "Install Kueue (latest release manifest) and define two teams with GPU quota and borrowing.",
-    "code": "kubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/<vX.Y.Z>/manifests.yaml\ncat > kueue.yaml <<'EOF'\napiVersion: kueue.x-k8s.io/v1beta1\nkind: ResourceFlavor\nmetadata: { name: h100 }\nspec: { nodeLabels: { nvidia.com/gpu.product: H100 }, tolerations: [{ key: kwok.x-k8s.io/node, operator: Exists, effect: NoSchedule }] }\n---\napiVersion: kueue.x-k8s.io/v1beta1\nkind: ClusterQueue\nmetadata: { name: team-a }\nspec:\n  cohort: lab\n  namespaceSelector: {}\n  resourceGroups:\n  - coveredResources: [cpu, memory, nvidia.com/gpu]\n    flavors:\n    - name: h100\n      resources:\n      - { name: cpu, nominalQuota: 1000 }\n      - { name: memory, nominalQuota: 10Ti }\n      - { name: nvidia.com/gpu, nominalQuota: 64, borrowingLimit: 32 }\n---\napiVersion: kueue.x-k8s.io/v1beta1\nkind: LocalQueue\nmetadata: { name: team-a, namespace: default }\nspec: { clusterQueue: team-a }\nEOF\nkubectl apply -f kueue.yaml   # copy the ClusterQueue as team-b too"
+    "text": "Install Kueue (latest release) and define two teams with GPU quota and borrowing. Kueue v0.20 removed the v1beta1 API, so use v1beta2 (where `cohort` is now `cohortName`).",
+    "code": "KUEUE=$(curl -s https://api.github.com/repos/kubernetes-sigs/kueue/releases/latest | jq -r .tag_name)   # v0.20.1 on Oct 8, 2026\nkubectl apply --server-side -f https://github.com/kubernetes-sigs/kueue/releases/download/$KUEUE/manifests.yaml\nkubectl -n kueue-system wait deploy/kueue-controller-manager --for=condition=Available --timeout=180s\ncat > kueue.yaml <<'EOF'\napiVersion: kueue.x-k8s.io/v1beta2\nkind: ResourceFlavor\nmetadata: { name: h100 }\nspec: { nodeLabels: { nvidia.com/gpu.product: H100 }, tolerations: [{ key: kwok.x-k8s.io/node, operator: Exists, effect: NoSchedule }] }\n---\napiVersion: kueue.x-k8s.io/v1beta2\nkind: ClusterQueue\nmetadata: { name: team-a }\nspec:\n  cohortName: lab\n  namespaceSelector: {}\n  resourceGroups:\n  - coveredResources: [cpu, memory, nvidia.com/gpu]\n    flavors:\n    - name: h100\n      resources:\n      - { name: cpu, nominalQuota: 1000 }\n      - { name: memory, nominalQuota: 10Ti }\n      - { name: nvidia.com/gpu, nominalQuota: 64, borrowingLimit: 32 }\n---\napiVersion: kueue.x-k8s.io/v1beta2\nkind: LocalQueue\nmetadata: { name: team-a, namespace: default }\nspec: { clusterQueue: team-a }\nEOF\nkubectl apply -f kueue.yaml   # copy the ClusterQueue as team-b too"
    },
    {
     "text": "Submit a 4-pod job that needs 4x8 GPUs and must start together (Kueue admits the whole workload or nothing). Then submit more than the quota and watch queueing/preemption.",
     "code": "cat > job.yaml <<'EOF'\napiVersion: batch/v1\nkind: Job\nmetadata: { name: train-32gpu, labels: { kueue.x-k8s.io/queue-name: team-a } }\nspec:\n  parallelism: 4\n  completions: 4\n  suspend: true\n  template:\n    spec:\n      restartPolicy: Never\n      tolerations: [{ key: kwok.x-k8s.io/node, operator: Exists, effect: NoSchedule }]\n      containers:\n      - name: w\n        image: busybox\n        command: [sleep, \"300\"]\n        resources: { requests: { nvidia.com/gpu: 8, cpu: 1, memory: 1Gi }, limits: { nvidia.com/gpu: 8 } }\nEOF\nkubectl apply -f job.yaml\nkubectl get workloads; kubectl get pods -o wide"
    },
    {
-    "text": "Repeat with KAI Scheduler or Volcano and compare; read JobSet and LeaderWorkerSet; use kube-scheduler-simulator to inspect a decision (gpu.html H4).",
+    "text": "Repeat with KAI Scheduler or Volcano and compare; read JobSet and LeaderWorkerSet; use kube-scheduler-simulator to inspect a decision (Go deeper).",
     "code": null
    }
   ],
@@ -1466,7 +1474,7 @@
   "before": "H4",
   "steps": [
    {
-    "text": "Read the Kubernetes DRA page: DeviceClass, ResourceClaim, ResourceClaimTemplate, ResourceSlice (gpu.html H5).",
+    "text": "Read the Kubernetes DRA page: DeviceClass, ResourceClaim, ResourceClaimTemplate, ResourceSlice. DRA has been GA since Kubernetes v1.34, so recent kind clusters support it without feature gates.",
     "code": null
    },
    {
@@ -1642,7 +1650,7 @@
     "code": "python3 -c \"import math; C=60; M=3*3600; print(math.sqrt(2*C*M)/60, 'min')\""
    },
    {
-    "text": "Job MTBF shrinks with size: if one node fails every N hours, a job on K nodes fails roughly every N/K hours. Do the math for 512 nodes using interruption rates reported in the Llama 3 paper and the reliability paper (gpu.html K3).",
+    "text": "Job MTBF shrinks with size: if one node fails every N hours, a job on K nodes fails roughly every N/K hours. Do the math for 512 nodes using interruption rates reported in the Llama 3 paper and the reliability paper (Go deeper).",
     "code": null
    },
    {
@@ -1674,8 +1682,8 @@
     "code": "python3 -m venv ~/vl && . ~/vl/bin/activate && pip install vllm\nvllm serve Qwen/Qwen2.5-1.5B-Instruct --max-model-len 4096 &\ncurl -s localhost:8000/v1/models | jq .\ncurl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \\\n  -d '{\"model\":\"Qwen/Qwen2.5-1.5B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hi\"}]}' | jq .choices[0].message.content"
    },
    {
-    "text": "Benchmark (check --help of your version for flags).",
-    "code": "vllm bench serve --help | head -40\n# or AIPerf: pip install aiperf && aiperf profile --help"
+    "text": "Benchmark. `vllm bench serve` reports TTFT, TPOT and inter-token latency. vLLM's docs recommend GuideLLM for production-style load tests; NVIDIA's AIPerf is a third option. Check `--help` for flags in your version.",
+    "code": "vllm bench serve --model Qwen/Qwen2.5-1.5B-Instruct --dataset-name random --num-prompts 200 --max-concurrency 16\n# production-style sweeps:\npip install guidellm && guidellm --help\n# or AIPerf: pip install aiperf && aiperf profile --help"
    },
    {
     "text": "Read the startup log: how much memory went to KV cache, max concurrent sequences. Check it with your K1 formula.",
@@ -2211,7 +2219,7 @@
     "code": null
    },
    {
-    "text": "Map your Sapphire stories (ESAG migration, DR drills, cost optimization) to 'influence without authority' answers - your Cloud_Ops_Learning_Task_List.xlsx has the details.",
+    "text": "Map 3-4 stories from your own past projects (a migration, a DR drill, a cost-optimisation programme) to 'influence without authority' answers, each in situation-action-result form with one number.",
     "code": null
    }
   ],
@@ -2222,7 +2230,7 @@
   "broke": [],
   "commit": "notes/exec/",
   "cleanup": "-",
-  "interview": "Use a real ProServe/Sapphire story: e.g. ESAG multi-account migration and DR drills - multiple customer teams, vendors, no direct authority, clear runbooks and status to align them."
+  "interview": "Pick one real project with several teams and no direct authority (for example a multi-account cloud migration with DR drills). Explain how you created clarity: one runbook, one status format, clear owners and dates, and what changed because of it."
  },
  {
   "id": "L1",

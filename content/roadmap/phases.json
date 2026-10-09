@@ -1,0 +1,92 @@
+[
+ {
+  "id": "phase-0",
+  "num": 0,
+  "name": "Set up your lab",
+  "short": "Setup",
+  "level": null,
+  "tagline": "One evening of setup that every later lab reuses.",
+  "goal": "Have a Linux workstation on your laptop, a guarded cloud sandbox, reusable Terraform templates for every environment, and the habit of tearing everything down at the end of a session.",
+  "outcomes": [
+   "WSL2 Ubuntu with Docker, kind, kubectl, helm, Terraform and the AWS CLI",
+   "A separate AWS lab account with a budget alarm and GPU quota requested",
+   "Terraform files for two Linux VMs, one GPU instance and two EFA nodes",
+   "A gpu-lab Git repository that will hold every script, result and note"
+  ],
+  "milestone": "You can create a GPU instance, run nvidia-smi on it and destroy it in under 15 minutes, and `labdown` prints an empty table.",
+  "labs": "setup"
+ },
+ {
+  "id": "phase-1",
+  "num": 1,
+  "name": "Foundations",
+  "short": "Foundations",
+  "level": "Beginner",
+  "tagline": "Touch every layer of a GPU system once.",
+  "goal": "Run the first, simplest version of each skill the role needs, from node triage and GPU errors to RDMA, NCCL, Slurm and Kubernetes, mostly on a laptop or a single cheap GPU.",
+  "outcomes": [
+   "Triage a slow Linux node in a minute and explain what each tool rules out",
+   "Decode XID errors and run DCGM diagnostics levels 1-3",
+   "Draw a GPU node's PCIe/NUMA topology and read nvidia-smi topo",
+   "Use Redfish, Soft-RoCE RDMA, nccl-tests, Slurm GRES and the GPU Operator at a basic level",
+   "Do the memory, KV-cache and FLOPs maths customers ask about"
+  ],
+  "milestone": "Five artifacts in your repo: triage.sh, xidwatch.py with tests, a DCGM report, an nccl-tests plot and a working GPU pod on Kubernetes.",
+  "labs": "Beginner"
+ },
+ {
+  "id": "phase-2",
+  "num": 2,
+  "name": "Practitioner",
+  "short": "Practitioner",
+  "level": "Intermediate",
+  "tagline": "Go deep per layer and work across nodes.",
+  "goal": "Reproduce real failure modes and real measurements: burn-in and throttling, NUMA and PCIe penalties, EFA and multi-node NCCL, hangs and stragglers, Slurm with health checks, GPU sharing, schedulers and metrics.",
+  "outcomes": [
+   "Burn in a GPU and prove throttling with clock-event reasons",
+   "Measure NUMA and PCIe effects with nvbandwidth and pcie_check.sh",
+   "Bring up EFA, prove NCCL uses it, and measure 1-node vs 2-node scaling",
+   "Debug an all-reduce hang and a straggler",
+   "Run Slurm with real GPUs, containers and Node Health Check",
+   "Operate GPU sharing (time-slicing, MIG), gang scheduling and DRA on Kubernetes",
+   "Build a DCGM to Prometheus to Grafana pipeline with alerts"
+  ],
+  "milestone": "An EFA scaling table, a burn-in report with a pass rule, a Slurm config with health checks and a Grafana dashboard with alert rules, all committed.",
+  "labs": "Intermediate"
+ },
+ {
+  "id": "phase-3",
+  "num": 3,
+  "name": "Senior: design and operate at scale",
+  "short": "Senior",
+  "level": "Senior",
+  "tagline": "Turn skills into designs, automation and decisions.",
+  "goal": "Write the documents and tools a solutions architect owns: acceptance runbooks, fabric designs, fleet monitoring and remediation, operators and policies, rollout plans, reliability analytics and executive updates.",
+  "outcomes": [
+   "A cluster acceptance runbook with thresholds and a go/no-go report",
+   "A 512-GPU rail-optimised fabric design with bill of materials",
+   "Bad-node bisection and automated cordon/drain with a circuit breaker",
+   "A Kubebuilder operator and a security policy pack for GPU clusters",
+   "A 1,024-GPU rollout plan, a storage tiering recommendation and an executive status template"
+  ],
+  "milestone": "Your acceptance runbook and 512-GPU fabric design are reviewed by someone else and stand up to their questions.",
+  "labs": "Senior-core"
+ },
+ {
+  "id": "phase-4",
+  "num": 4,
+  "name": "Capstone and proof",
+  "short": "Capstone",
+  "level": "Senior",
+  "tagline": "One repository and one story that prove it all.",
+  "goal": "Package everything into a validation kit that builds a two-node GPU cluster, runs your acceptance stages and writes a report, then make it visible through posts, pull requests and a talk.",
+  "outcomes": [
+   "make up / configure / validate / down produces a dated go/no-go report",
+   "Each injected failure (XID line, EFA disabled, NUMA mis-binding, slow node) is caught",
+   "Two public pull requests and a 10-minute talk built on the capstone",
+   "Interview bank answered out loud; NCP-AII booked if you want the certificate"
+  ],
+  "milestone": "A public capstone repository you can walk through in an interview: what it checks, what it caught and what a run costs.",
+  "labs": "Capstone"
+ }
+]

@@ -1,48 +1,37 @@
-# Optional: build and deploy with GitHub Actions instead of `npm run deploy`.
-# Needs: repository secret SITE_USERS ("user:password;user2:password2") and
-#        Settings -> Pages -> Source: GitHub Actions.
+# Check, build and publish dist/ to the gh-pages branch on every push to main.
+# GitHub Pages: Settings -> Pages -> Deploy from a branch -> gh-pages / (root).
 name: Deploy site
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Check links
+      - name: Check links (also builds dist/)
+        run: node tools/check.mjs
+      - name: Publish to gh-pages
         env:
-          SITE_USERS: ${{ secrets.SITE_USERS }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "$SITE_USERS" ]; then echo "::error::Add the SITE_USERS repository secret first (see docs/AUTH.md)"; exit 1; fi
-          node tools/check.mjs
-      - name: Build
-        env:
-          SITE_USERS: ${{ secrets.SITE_USERS }}
-        run: node src/build.mjs
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy site from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages

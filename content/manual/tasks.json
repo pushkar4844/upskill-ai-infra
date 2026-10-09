@@ -898,7 +898,7 @@
   "tier": 3,
   "tier_label": "Tier 3 - multi-node",
   "hours": 10,
-  "title": "EFA on AWS, validated the way ProServe would",
+  "title": "EFA on AWS, validated like a field engineer would",
   "jd": "JD stand-out: knowledge of compute and networking at hyperscalers and CSPs.",
   "steps": [
    "Launch two EFA-capable instances in one cluster placement group. Use a security group that allows all traffic from itself.",
@@ -1830,7 +1830,7 @@
   "title": "Dynamic Resource Allocation (DRA)",
   "jd": "JD stand-out: current infrastructure knowledge for GPUs in Kubernetes.",
   "steps": [
-   "Read the Kubernetes DRA page: DeviceClass, ResourceClaim and ResourceSlice. The page marks DRA stable since v1.35, first available in v1.30.",
+   "Read the Kubernetes DRA page: DeviceClass, ResourceClaim and ResourceSlice. DRA graduated to GA in Kubernetes v1.34 (structured parameters arrived in v1.30); the <code>resource.k8s.io/v1</code> API is enabled by default.",
    "Deploy the example driver on kind and create a claim for a fake device.",
    "Read NVIDIA's DRA driver README and note what it adds, including its multi-node NVLink support.",
    "Write a comparison: device plugin counts versus DRA attributes. List a placement decision DRA makes possible."
@@ -2375,7 +2375,7 @@
     "name": "SemiAnalysis ClusterMAX 2.0"
    }
   ],
-  "question": "Tell me about a time you aligned several teams without authority. (Use a ProServe engagement.)"
+  "question": "Tell me about a time you aligned several teams without authority."
  },
  {
   "id": "K1",

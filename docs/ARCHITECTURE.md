@@ -1,45 +1,32 @@
 # Architecture
 
-## Why plain HTML + a Node script
-
-- GitHub Pages serves static files; no server runtime is needed.
-- Zero dependencies: `node src/build.mjs` works on any machine with Node 20+, nothing to install or keep updated.
-- Pages are real HTML files at stable URLs (`/labs/e1/`), so bookmarks and the back button behave normally.
-
-## Build pipeline
-
-```
-content/*.json ──► src/build.mjs ──► page bodies (HTML strings)
-                          │                 │
-                          │       encrypt (AES-256-GCM, content key)
-                          ▼                 ▼
-                 dist/auth/keyring.json   dist/<route>/index.html  (+ assets/, 404.html, .nojekyll)
-```
-
-All links are relative (`../../labs/a1/`), so the site works at `https://<user>.github.io/upskill-ai-infra/` and on localhost.
+A zero-dependency static site generator (`src/build.mjs`, Node 20+) turns the JSON in `content/` into plain HTML pages in `dist/`. All links are relative, so the site works from any sub-path (GitHub Pages serves it under `/upskill-ai-infra/`).
 
 ## Information architecture
 
-| Route | What it is |
+| URL | Page |
 |---|---|
-| `/` | Public landing page |
-| `/login/` | Sign-in |
-| `/dashboard/` | Progress ring, track bars, "continue" button, this week's labs, Day-0 progress, all courses |
-| `/path/`, `/path/{beginner,intermediate,senior,core,schedule}/` | Learning path, tracks in order, core path, 22-week schedule |
-| `/courses/`, `/courses/<domain>/` | 12 courses (one per domain), each listing its labs as modules |
-| `/labs/` | Catalog with filters (level, course, environment, status, core, search) |
-| `/labs/<id>/` | Lesson page: course outline sidebar + tabs (Overview, Hands-on lab, Field manual, Resources, Interview prep), complete button, previous/next |
-| `/setup/`, `/setup/s1..s11/`, `/setup/environments/`, `/setup/first-10-days/` | Day-0 setup as a mini course |
-| `/role/`, `/role/coverage/`, `/role/where-you-stand/` | The JD verbatim, requirement-to-lab map, gap analysis |
-| `/resources/…` | Hidden gems, reading and free courses, interview bank, certifications, troubleshooting |
-| `/about/` | Sources, honesty notes, how access works |
+| `/` | Roadmap: hero, overall progress, the five phases as a timeline, the lab loop, pace options, topics |
+| `/roadmap/<n>-<name>/` | A phase: goal, outcomes, modules (labs grouped by topic in study order), checkpoint |
+| `/setup/sN/` | Phase 0 setup steps |
+| `/labs/` and `/labs/<id>/` | Filterable lab index; one scrolling page per lab with a phase outline (left) and "on this page" (right) |
+| `/concepts/` and `/concepts/<topic>/` | Topic primers |
+| `/guide/…` | How to use the roadmap, weekly plans, first 10 days, environments |
+| `/interview/`, `/role/…`, `/resources/…`, `/search/`, `/about/` | Supporting pages |
 
-## Client-side JavaScript
+Old URLs from the first version (`/dashboard/`, `/path/`, `/courses/`, `/setup/`, …) are static redirect pages.
 
-- `assets/js/auth.js`: sign-in (PBKDF2 → unwrap content key) and page decryption; redirects to `/login/?next=…` when needed.
-- `assets/js/app.js`: theme toggle, mobile menu, copy buttons, tabs (with `#lab`-style deep links), catalog filters,
-  progress (`localStorage` key `uai-progress-v1`), self-check boxes (`uai-verify-v1`), dashboard week calculation.
+## Derived data
 
-## Quality checks
+- **Phases** come from `content/roadmap/phases.json`. Its `labs` field selects labs: `setup`, a level (`Beginner`, `Intermediate`), `Senior-core` (Senior minus L1/L2) or `Capstone` (L1, L2).
+- **Modules** are a phase's labs grouped by topic, ordered by first appearance in `labs.json`.
+- **Weekly plans** are packed at build time: labs in study order, a new week when the hour cap is reached or the phase changes. Full path: 20 h/week. Core path: 11 h/week.
+- **Search** uses an index embedded in `/search/` (phases, labs, setup steps, concepts, glossary).
 
-`npm run check` builds with a plaintext side copy (never deployed) and verifies every internal `href`/`src`, plus no duplicate IDs per page.
+## Browser behaviour (`src/assets/js/app.js`)
+
+Theme toggle, mobile menu, `/` to search, copy buttons, lab completion (`localStorage` key `uai-progress-v1`), self-check ticks (`uai-verify-v1`), progress bars and ring, "Continue" buttons, catalog filters, glossary filter and the table-of-contents highlight. Pages are fully readable without JavaScript.
+
+## Checks
+
+`npm run check` builds, then verifies every internal `href`/`src` and `#anchor` resolves and that no page repeats an `id`. The build itself fails if a lab is missing its field-manual task, a topic has no primer, or a lab belongs to no phase.

@@ -416,7 +416,7 @@
    },
    {
     "task": "J3",
-    "question": "Tell me about a time you aligned several teams without authority. (Use a ProServe engagement.)"
+    "question": "Tell me about a time you aligned several teams without authority."
    },
    {
     "task": "K1",
@@ -447,7 +447,7 @@
  "certifications": [
   {
    "title": "NCP-AII (NVIDIA-Certified Professional: AI Infrastructure)",
-   "html": "<p>Domains and weights on NVIDIA's page: Cluster Test and Verification 33%, System and Server Bring-up 31%, Control Plane Installation and Configuration 19%, Troubleshoot and Optimize 12%, Physical Layer Management 5%.</p> <p>About 70 to 75 questions, 120 minutes, $400. The page lists 2 to 3 years of data-center operations experience with NVIDIA hardware as a prerequisite, so treat the lab work here as your substitute and read the page before you book.</p> <p><a href=\"https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-professional\" rel=\"noopener\" target=\"_blank\">Exam page</a></p>"
+   "html": "<p>NVIDIA's exam page (checked Oct 8, 2026): <b>120 minutes, 70-75 questions, $400</b>, online with remote proctoring (Certiverse), valid for two years. Recommended background: two to three years of data-center operations with NVIDIA hardware; treat the labs here as your substitute and read the page before you book.</p><p>Domain weights as published in NVIDIA's exam study guide (reported by third-party guides; confirm in the official guide): Cluster Test and Verification 33%, Systems and Server Bring-up 31%, Control Plane Installation and Configuration 19%, Troubleshooting and Optimization 12%, Physical Layer Management 5%. Phases 1-3 of this roadmap line up with the first three domains.</p><p><a href=\"https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-professional\" target=\"_blank\" rel=\"noopener\">Exam page</a></p>"
   },
   {
    "title": "NCA-AIIO (Associate)",
@@ -455,7 +455,7 @@
   },
   {
    "title": "CKS",
-   "html": "<p>The call stressed Kubernetes security. Tasks H7 and H8 prepare the ground if you choose to sit it.</p>"
+   "html": "<p>Optional. Kubernetes security comes up in GPU platform interviews; labs H7 and H8 prepare the ground if you choose to sit it.</p>"
   }
  ]
 }

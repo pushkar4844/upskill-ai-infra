@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Build locally and publish dist/ to the gh-pages branch (GitHub Pages: "Deploy from a branch" -> gh-pages / root).
-// Uses users.local.json, so no secrets are needed in GitHub. Source of the site stays on main.
+// Same result as the GitHub Actions workflow, run from your machine.
 //   node tools/deploy.mjs
 import { execSync } from "node:child_process";
 import fs from "node:fs";

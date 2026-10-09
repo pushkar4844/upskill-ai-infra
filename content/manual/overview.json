@@ -6,8 +6,8 @@
  "time_html": "<b>Time.</b> The full path is 471 hours, about 21 hours a week for 22 weeks. The <span class=\"pill core\">Core path</span> subset (26 tasks, 233 hours, about 11 hours a week) keeps every area of the posting. Pick it if you are working full time.",
  "notes": [
   {
-   "title": "Where you stand, from what you told me",
-   "html": "<p><b>Strong:</b> Linux and containers, Kubernetes (CKAD), IaC, hyperscaler compute and networking, customer delivery across teams.</p> <p><b>Gaps to close:</b> hands-on GPU diagnostics, RDMA and NCCL, PCIe/NUMA/BIOS, BMC and Redfish, bare-metal provisioning.</p> <p class=\"muted\">LinkedIn blocked my access, so this is not a profile review. Paste your profile text for a line-by-line one.</p>"
+   "title": "Who this roadmap is for",
+   "html": "<p><b>Assumed background:</b> comfortable with Linux, containers and Kubernetes, infrastructure as code, and at least one hyperscaler's compute and networking, plus experience delivering projects across several teams.</p><p><b>What it fills in:</b> hands-on GPU diagnostics, RDMA and NCCL, PCIe/NUMA/BIOS, BMC and Redfish, bare-metal provisioning: the hardware and fabric layers a cloud background usually skips.</p><p class=\"muted\">New to Kubernetes or Terraform? Do a short intro course on each before Phase 1; the labs assume the basics.</p>"
   },
   {
    "title": "Lab tiers, so cost stays low",
@@ -15,11 +15,11 @@
   },
   {
    "title": "What the call changed",
-   "html": "<p>From a mentoring conversation with an NVIDIA Sr. Solutions Architect (AI Inference): learn LLM basics at a light level, go deep on how workloads are deployed on Kubernetes, think about storage close to compute, topology-aware GPU placement, Kubernetes security (admission policy), CRDs and operators, NVIDIA's free courses.</p> <p>Her role is inference-focused. The Infrastructure posting is closer to hardware bring-up, so those items became H4, H5, H7, H8, I3 and K1 to K4, and the hardware tasks (C, D, E) were added on top.</p>"
+   "html": "<p>From a mentoring conversation with an NVIDIA Sr. Solutions Architect (AI Inference): learn LLM basics at a light level, go deep on how workloads are deployed on Kubernetes, think about storage close to compute, topology-aware GPU placement, Kubernetes security (admission policy), CRDs and operators, NVIDIA's free courses.</p> <p>That role is inference-focused. The Infrastructure posting is closer to hardware bring-up, so those items became H4, H5, H7, H8, I3 and K1 to K4, and the hardware tasks (C, D, E) were added on top.</p>"
   },
   {
-   "title": "How I checked this",
-   "html": "<p>Every GitHub repo linked here was confirmed to exist with a readable README on Oct 8, 2026. Star counts are omitted because I could not verify them live. Doc figures (DCGM durations, XID meanings, NCP-AII weights, the 92% all-reduce bar) were read from the cited pages. Where a command or flag varies by version, the task says to check the README.</p>"
+   "title": "How links and facts were checked",
+   "html": "<p>All 228 external links were re-checked on Oct 8, 2026 (HTTP 200). Version-sensitive facts were re-verified against primary sources the same day: DRA graduated to GA in Kubernetes v1.34; Kueue v0.20 removed the v1beta1 API (use v1beta2, where <code>cohort</code> is now <code>cohortName</code>); the AWS Deep Learning Base OSS GPU AMI ships on Ubuntu 24.04 with DCGM 4 preinstalled; DCGM 4 installs as <code>datacenter-gpu-manager-4-cuda&lt;major&gt;</code>; EC2 GPU quota codes are L-DB2E81BA (On-Demand G/VT) and L-3819A6DF (Spot G/VT). Commands that depend on a release fetch the latest version automatically. Star counts are omitted. Where a command or flag varies by version, the step says to check the README or <code>--help</code>.</p>"
   }
  ],
  "footer": "Built Oct 8, 2026. Re-check hardware-specific commands against your driver, CUDA and NCCL versions before relying on a number."
