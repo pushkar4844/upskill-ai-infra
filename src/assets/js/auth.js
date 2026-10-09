@@ -37,6 +37,7 @@
       var pt = await subtle.decrypt({ name: "AES-GCM", iv: b64d(p.iv) }, key, b64d(p.ct));
       document.getElementById("app").innerHTML = new TextDecoder().decode(pt);
       el.remove();
+      var tt = document.getElementById("uai-title"); if (tt) { document.title = tt.content.textContent || tt.textContent; tt.remove(); }
       window.__uaiReady = true;
       document.dispatchEvent(new CustomEvent("uai:ready"));
     } catch (e) {

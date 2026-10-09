@@ -52,7 +52,7 @@ export function pageHead(R, title, desc = SITE.tagline) {
 
 // Protected: body content is replaced by ciphertext; auth.js decrypts it in the browser.
 export function protectedPage(R, { title, page }, payload) {
-  return `${pageHead(R, title)}
+  return `${pageHead(R, "Sign in required")}
 <body data-root="${R}" data-page="${page}" data-protected>
 <div id="app"><div class="gate"><div class="gate-card">${icon("lock", "i big")}<p>Unlocking…</p></div></div></div>
 <script type="application/json" id="payload">${JSON.stringify(payload)}</script>

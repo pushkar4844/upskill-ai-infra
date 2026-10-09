@@ -399,7 +399,7 @@ async function main() {
     const depth = p.path ? p.path.split("/").filter(Boolean).length : 0;
     const R = depth ? "../".repeat(depth) : "./";
     const body = p.body(R);
-    const html = p.public ? publicPage(R, p, body) : protectedPage(R, p, await encryptText(ck, body));
+    const html = p.public ? publicPage(R, p, body) : protectedPage(R, p, await encryptText(ck, `<template id="uai-title">${p.title.replace(/</g, "&lt;")} · ${SITE.name}</template>` + body));
     const dir = path.join(OUT, p.path);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "index.html"), html);
